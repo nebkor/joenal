@@ -1,0 +1,10 @@
+#!/bin/bash
+
+logline=`git log -1 --pretty=oneline`
+
+cdir=$(readlink -f $(pwd))
+
+${HOME}/bin/_jot -t headless -t "git commit" -m "Committed:
+$logline
+
+in $cdir" --headless
