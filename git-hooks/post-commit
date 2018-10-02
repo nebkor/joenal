@@ -7,4 +7,4 @@ cdir=$(readlink -f $(pwd))
 ${HOME}/bin/_jot -t headless -t "git commit" -m "Committed:
 $logline
 
-in $cdir" --headless
+in GIT_WORKING_DIR=$cdir" --headless
