@@ -1,3 +1,3 @@
 #!/bin/bash
 
-$HOME/bin/_jot -t "interactive shell" -t "host:$(hostname)" "$@"
+$HOME/bin/_jot -t "interactive shell" -t "host:$(hostname)" "$@" -t "pwd:$(/bin/pwd)"
