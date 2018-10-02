@@ -3,8 +3,9 @@
 logline=`git log -1 --pretty=oneline`
 
 cdir=$(readlink -f $(pwd))
+host=$(/bin/hostname)
 
-${HOME}/bin/_jot -t headless -t "git commit" -m "Committed:
+${HOME}/bin/_jot -t host\:$host -t headless -t git-commit -m "Committed:
 $logline
 
 in GIT_WORKING_DIR=$cdir" --headless
