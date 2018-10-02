@@ -49,11 +49,12 @@ def main():
     argparser.add_argument('-t', '--tag', action='append',
                            help='tag to add to list of tags; may be called more than once')
     argparser.add_argument('-m', '--message', help='string to prepend message')
-    argparser.add_argument('--headless', action='store_true',
-                           help='use for non-interactive invocations')
     argparser.add_argument('-l', '--logfile', help='file to write entry to', default=LOGFILE)
     argparser.add_argument('-v', '--verbose', action='store_true',
                            help='print raw entry to stdout after writing to log')
+    argparser.add_argument('--headless', action='store_true',
+                           help='use for non-interactive invocations')
+
 
     args = argparser.parse_args(sys.argv[1:])
 
@@ -74,7 +75,8 @@ def main():
     with open(args.logfile, 'a') as f:
         f.write(ent)
 
-    print(epilog)
+    if not args.headless:
+        print(epilog)
 
     return
 
