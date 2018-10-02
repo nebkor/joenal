@@ -44,6 +44,6 @@ option, though it may be used only once. Both the message and the tags may be
 added to when jot is invoked without ```--headless```.
 
 In terms of workflows, the ```jot``` shellscript is meant to be used to dash a
-not off to yourself. In the future, I will have some git hooks and other tool
+note off to yourself. In the future, I will have some git hooks and other tool
 tie-ins to automatically add jot entries to the database, and there will be
 tools for searching and analyzing your jotlog.
