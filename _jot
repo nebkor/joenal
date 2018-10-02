@@ -1,0 +1,83 @@
+#!/usr/bin/env python3
+
+import sys, os, time
+from pathlib import Path
+from argparse import ArgumentParser
+
+START = '%%START%%'
+END = '%%END%%'
+
+TAGS = '%%TAGS%%'
+
+LOGFILE = Path().home() / ".kaptanslawg"
+
+def get_text(args):
+    text = ""
+
+    if args.message:
+        text = args.message + "\n\n"
+    else:
+        pass
+
+    if not args.headless:
+        print("Hit ^d to end input")
+        text += sys.stdin.read()
+    else:
+        pass
+
+    return text
+
+def get_tags(args):
+    tags = ""
+
+    if args.tag:
+        tags = ', '.join(args.tag) + ", "
+    else:
+        pass
+
+    if not args.headless:
+        print("enter comma-separated tags, enter when done")
+        tags += sys.stdin.readline().strip()
+    else:
+        tags = tags.strip(', ')
+
+    return tags
+
+def main():
+    argparser = ArgumentParser()
+
+    argparser.add_argument('-t', '--tag', action='append',
+                           help='tag to add to list of tags; may be called more than once')
+    argparser.add_argument('-m', '--message', help='string to prepend message')
+    argparser.add_argument('--headless', action='store_true',
+                           help='use for non-interactive invocations')
+    argparser.add_argument('-l', '--logfile', help='file to write entry to', default=LOGFILE)
+    argparser.add_argument('-v', '--verbose', action='store_true',
+                           help='print raw entry to stdout after writing to log')
+
+    args = argparser.parse_args(sys.argv[1:])
+
+    text = get_text(args)
+    date = time.strftime('%Y-%m-%d %H:%M:%S')
+    tags = get_tags(args)
+
+    ent = "\n".join([START, date, '', text, "%s %s" % (TAGS, tags), END, "\n"])
+
+    epilog = "Wrote entry "
+    if args.verbose:
+        epilog += """
+%s""" % ent
+    else:
+        pass
+    epilog += "to %s" % args.logfile
+
+    with open(args.logfile, 'a') as f:
+        f.write(ent)
+
+    print(epilog)
+
+    return
+
+if __name__ == "__main__":
+    main()
+    exit(0)
