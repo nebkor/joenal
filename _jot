@@ -52,7 +52,7 @@ def main():
     argparser.add_argument('-l', '--logfile', help='file to write entry to', default=LOGFILE)
     argparser.add_argument('-v', '--verbose', action='store_true',
                            help='print raw entry to stdout after writing to log')
-    argparser.add_argument('--headless', action='store_true',
+    argparser.add_argument('-n', '--headless', action='store_true',
                            help='use for non-interactive invocations')
 
 
