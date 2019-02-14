@@ -1,0 +1,10 @@
+[package]
+name = "importer"
+version = "0.1.0"
+authors = ["Joe Ardent <code@ardent.nebcorp.com>"]
+edition = "2018"
+
+[dependencies]
+rusqlite = "0.15.0"
+regex = "1.1.0"
+clap = "2.32.0"
