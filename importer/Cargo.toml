@@ -5,6 +5,12 @@ authors = ["Joe Ardent <code@ardent.nebcorp.com>"]
 edition = "2018"
 
 [dependencies]
-rusqlite = "0.15.0"
-regex = "1.1.0"
-clap = "2.32.0"
+regex = "1"
+clap = "2"
+time = "*"
+chrono = "*"
+lazy_static = "*"
+sha2 = "*"
+diesel = { version = "*", features = ["sqlite"] }
+diesel_codegen = { version = "*", features = ["sqlite"] }
+dotenv = "*"
