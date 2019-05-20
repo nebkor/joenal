@@ -14,3 +14,4 @@ sha2 = "*"
 diesel = { version = "1", features = ["sqlite"] }
 # diesel_codegen = { version = "1", features = ["sqlite"] }
 dotenv = "*"
+uuid = { version = "*", features = ["v5", "v4"] }
