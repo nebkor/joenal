@@ -11,6 +11,6 @@ time = "*"
 chrono = "*"
 lazy_static = "*"
 sha2 = "*"
-diesel = { version = "*", features = ["sqlite"] }
-diesel_codegen = { version = "*", features = ["sqlite"] }
+diesel = { version = "1", features = ["sqlite"] }
+# diesel_codegen = { version = "1", features = ["sqlite"] }
 dotenv = "*"
