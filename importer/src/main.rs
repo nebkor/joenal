@@ -1,62 +1,45 @@
 use chrono::Duration;
+use config;
 use lazy_static::lazy_static;
 use regex::Regex;
-use rusqlite::types::ToSql;
-use rusqlite::{Connection, DatabaseName, NO_PARAMS};
 use sha2::{Digest, Sha256};
+use std::path::Path;
 use time::Timespec;
+use uuid::Uuid;
+
+use std::env;
 
 const DSTRING: &str = "%Y-%m-%d %H:%M:%S";
 
-#[derive(Debug)]
-struct Person {
-    id: i32,
-    name: String,
-    time_created: Timespec,
-    data: Option<Vec<u8>>,
-}
-
-fn mkdb
+const NAMESPACE_JOT: &str = "930ccacb-5523-4be7-8045-f033465dae8f"; // v4 UUID used for constructing v5 UUIDs
 
 fn main() {
-    let conn = Connection::open("db.sqlite3").unwrap();
+    let dev_id = get_device_uuid();
 
-    conn.execute(
-        "CREATE TABLE jots (
-                  id              TEXT PRIMARY KEY,
-                  name            TEXT NOT NULL,
-                  time_created    TEXT NOT NULL,
-                  data            BLOB
-                  )",
-        NO_PARAMS,
-    )
-    .unwrap();
-    let me = Person {
-        id: 0,
-        name: "Steven".to_string(),
-        time_created: time::get_time(),
-        data: None,
-    };
-    conn.execute(
-        "INSERT INTO person (name, time_created, data)
-                  VALUES (?1, ?2, ?3)",
-        &[&me.name as &ToSql, &me.time_created, &me.data],
-    )
-    .unwrap();
+    let new_id = gen_uuid(&Some(dev_id), &[]);
 
-    let mut stmt = conn
-        .prepare("SELECT id, name, time_created, data FROM person")
-        .unwrap();
-    let person_iter = stmt
-        .query_map(NO_PARAMS, |row| Person {
-            id: row.get(0),
-            name: row.get(1),
-            time_created: row.get(2),
-            data: row.get(3),
-        })
-        .unwrap();
+    println!("dev_id: {}\nnew_id: {}", dev_id, new_id);
+}
 
-    for person in person_iter {
-        println!("Found person {:?}", person.unwrap());
+fn get_device_uuid() -> Uuid {
+    let mut config = config::Config::default();
+
+    if let Ok(home) = env::var("HOME") {
+        let conf = Path::new(&home).join(".config").join("jotlog");
+        let conf = config
+            .merge(config::File::with_name(conf.to_str().unwrap()))
+            .unwrap();
+        return Uuid::parse_str(&conf.get_str("device_id").unwrap()).unwrap();
+    } else {
+        return Uuid::new_v4();
+    }
+}
+
+fn gen_uuid(root: &Option<Uuid>, content: &[u8]) -> Uuid {
+    if let Some(ref root) = root {
+        let dev_id = get_device_uuid();
+        return Uuid::new_v5(root, &([dev_id.as_bytes(), content].concat()));
+    } else {
+        return Uuid::new_v4();
     }
 }
