@@ -18,7 +18,30 @@ fn main() {
 
     let new_id = gen_uuid(&Some(dev_id), &[]);
 
-    println!("dev_id: {}\nnew_id: {}", dev_id, new_id);
+    let digest = make_hashed_content(&[]);
+
+    println!(
+        "dev_id: {}\nnew_id: {}\ndigest: {:?}",
+        dev_id, new_id, digest
+    );
+}
+
+fn get_config() -> config::Config {
+    let mut config = config::Config::default();
+
+    if let Ok(home) = env::var("HOME") {
+        let conf = Path::new(&home).join(".config").join("jotlog");
+        return config
+            .merge(config::File::with_name(conf.to_str().unwrap()))
+            .unwrap()
+            .clone();
+    }
+
+    config
+}
+
+fn make_hashed_content(content: &[u8]) -> String {
+    format!("{:x}", sha2::Sha256::digest(content))
 }
 
 fn get_device_uuid() -> Uuid {
