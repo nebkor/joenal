@@ -29,6 +29,8 @@ fn main() {
     let _ = lawg_file.read_to_string(&mut lawg);
 
     let mut jots: Vec<Jot> = parse_jot(lawg);
+
+    println!("Found {} jots.", jots.len());
 }
 
 fn parse_jot(log: String) -> Vec<Jot> {
@@ -57,7 +59,7 @@ fn parse_jot(log: String) -> Vec<Jot> {
         }
 
         if get_date {
-            creation_date = PTZ.datetime_from_str(&line, DSTRING).unwrap();
+            creation_date = parse_date(line, &PTZ);
             get_date = false;
             continue;
         }
@@ -82,22 +84,24 @@ fn parse_jot(log: String) -> Vec<Jot> {
 
             tags.clear();
             content.clear();
+
+            continue;
         }
 
         if in_jot {
-            content += line;
+            content = [&content, line].join("\n");
             continue;
         }
     }
 
-    vec![]
+    jots
 }
 
 fn parse_tags(tagline: &str) -> Vec<String> {
-    vec![]
+    tagline.split(",").map(|t| t.trim().to_owned()).collect()
 }
 
-fn parse_date(dstring: &str, tz: FixedOffset) -> DateTime<FixedOffset> {
+fn parse_date(dstring: &str, tz: &FixedOffset) -> DateTime<FixedOffset> {
     tz.datetime_from_str(dstring, DSTRING).unwrap()
 }
 
