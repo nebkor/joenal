@@ -2,12 +2,13 @@ use chrono::prelude::*;
 use config;
 use lazy_static::lazy_static;
 use regex::Regex;
-use sha2::{Digest, Sha256};
 use std::path::Path;
 use time::Timespec;
 use uuid::Uuid;
 
 use std::env;
+use std::fs::File;
+use std::io::prelude::*;
 
 const DSTRING: &str = "%Y-%m-%d %H:%M:%S";
 const HOUR: i32 = 3600;
@@ -21,18 +22,19 @@ struct Jot {
 }
 
 fn main() {
+    lazy_static! {
+        static ref START: Regex = Regex::new(r"^%%START%%$");
+        static ref END: Regex = Regex::new(r"^%%END%%$");
+        static ref TAGS: Regex = Regex::new(r"^%%TAGS%% (.*)$");
+    }
+
     let PTZ: FixedOffset = FixedOffset::west(7 * HOUR);
 
-    let dev_id = get_device_uuid();
+    let lawg_file = File::open(Path::new(&env::var("HOME").unwrap()).join(".kaptanslawg")).unwrap();
+    let mut lawg = String::new();
+    lawg_file.read_to_string(&mut lawg);
 
-    let new_id = gen_uuid(&[]);
-
-    let digest = make_hashed_content(&[]);
-
-    println!(
-        "dev_id: {}\nnew_id: {}\ndigest: {:?}",
-        dev_id, new_id, digest
-    );
+    let mut jots: Vec<Jot> = parse_jot(lawg);
 }
 
 fn parse_jot(log: String) -> Vec<Jot> {
@@ -57,10 +59,6 @@ fn get_config() -> config::Config {
     config
 }
 
-fn make_hashed_content(content: &[u8]) -> String {
-    format!("{:x}", sha2::Sha256::digest(content))
-}
-
 fn get_device_uuid() -> Uuid {
     let mut config = config::Config::default();
 
@@ -76,11 +74,10 @@ fn get_device_uuid() -> Uuid {
 }
 
 fn gen_uuid(content: &[u8]) -> Uuid {
-    let content = make_hashed_content(content);
     let dev_id = get_device_uuid();
 
     Uuid::new_v5(
         &Uuid::parse_str(NAMESPACE_JOT).unwrap(),
-        &([dev_id.as_bytes(), content.as_bytes()].concat()),
+        &([dev_id.as_bytes(), content].concat()),
     )
 }
