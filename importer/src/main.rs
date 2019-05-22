@@ -45,6 +45,7 @@ fn parse_jot(log: String) -> Vec<Jot> {
     let mut get_date = false;
 
     let mut content = String::new();
+
     let mut creation_date: DateTime<FixedOffset> = PTZ.ymd(1973, 7, 13).and_hms(0, 0, 0);
     let mut tags = vec![];
 
