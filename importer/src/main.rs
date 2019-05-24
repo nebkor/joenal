@@ -44,9 +44,6 @@ fn parse_jot(log: String) -> Vec<Jot> {
     }
 
     let mut jots: Vec<Jot> = Vec::new();
-
-    let mut slurp_content = false;
-
     let mut content = String::new();
 
     let mut creation_date: DateTime<FixedOffset> = PTZ.ymd(1973, 7, 13).and_hms(0, 0, 0);
@@ -54,23 +51,12 @@ fn parse_jot(log: String) -> Vec<Jot> {
 
     for line in log.lines() {
         if let Some(_) = START.captures(line) {
-            slurp_content = true;
             continue;
-        }
-
-        if let Some(_) = DATE.captures(line) {
+        } else if let Some(_) = DATE.captures(line) {
             creation_date = parse_date(line, &PTZ);
-            continue;
-        }
-
-        if let Some(tagline) = TAGS.captures(line) {
+        } else if let Some(tagline) = TAGS.captures(line) {
             tags = parse_tags(&tagline[1]);
-            continue;
-        }
-
-        if let Some(_) = END.captures(line) {
-            slurp_content = false;
-
+        } else if let Some(_) = END.captures(line) {
             let jot = Jot {
                 content: content.trim().to_owned().clone(),
                 creation_date: creation_date.clone(),
@@ -83,13 +69,8 @@ fn parse_jot(log: String) -> Vec<Jot> {
 
             tags.clear();
             content.clear();
-
-            continue;
-        }
-
-        if slurp_content {
+        } else {
             content = [&content, line].join("\n");
-            continue;
         }
     }
 
@@ -119,24 +100,16 @@ fn get_config() -> config::Config {
 }
 
 fn get_device_uuid() -> Uuid {
-    let mut config = config::Config::default();
+    let config = get_config();
 
-    if let Ok(home) = env::var("HOME") {
-        let conf = Path::new(&home).join(".config").join("jotlog");
-        let conf = config
-            .merge(config::File::with_name(conf.to_str().unwrap()))
-            .unwrap();
-        return Uuid::parse_str(&conf.get_str("device_id").unwrap()).unwrap();
-    } else {
-        return Uuid::new_v4();
-    }
+    let dev_id = config.get_str("device_id").unwrap();
+    let dev_id = Uuid::parse_str(&dev_id).unwrap();
+
+    return Uuid::new_v5(&Uuid::parse_str(NAMESPACE_JOT).unwrap(), dev_id.as_bytes());
 }
 
-fn gen_uuid(content: &[u8]) -> Uuid {
+fn gen_uuid(root: &Uuid, content: &[u8]) -> Uuid {
     let dev_id = get_device_uuid();
 
-    Uuid::new_v5(
-        &Uuid::parse_str(NAMESPACE_JOT).unwrap(),
-        &([dev_id.as_bytes(), content].concat()),
-    )
+    Uuid::new_v5(root, content)
 }
