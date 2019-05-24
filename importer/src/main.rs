@@ -1,9 +1,9 @@
 use chrono::prelude::*;
 use config;
+use diesel::{self, Queryable};
 use lazy_static::lazy_static;
 use regex::Regex;
 use std::path::Path;
-use time::Timespec;
 use uuid::Uuid;
 
 use std::env;
@@ -28,9 +28,9 @@ fn main() {
     let mut lawg = String::new();
     let _ = lawg_file.read_to_string(&mut lawg);
 
-    let mut jots: Vec<Jot> = parse_jot(lawg);
+    let jots: Vec<Jot> = parse_jot(lawg);
 
-    println!("Found {} jots.", jots.len());
+    println!("Parsed {} jots.", jots.len());
 }
 
 fn parse_jot(log: String) -> Vec<Jot> {
@@ -39,12 +39,13 @@ fn parse_jot(log: String) -> Vec<Jot> {
         static ref END: Regex = Regex::new(r"^%%END%%").unwrap();
         static ref TAGS: Regex = Regex::new(r"^%%TAGS%% (.*)$").unwrap();
         static ref PTZ: FixedOffset = FixedOffset::west(7 * HOUR);
+        static ref DATE: Regex =
+            Regex::new(r"^([0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2})").unwrap();
     }
 
     let mut jots: Vec<Jot> = Vec::new();
 
-    let mut in_jot = false;
-    let mut get_date = false;
+    let mut slurp_content = false;
 
     let mut content = String::new();
 
@@ -53,14 +54,12 @@ fn parse_jot(log: String) -> Vec<Jot> {
 
     for line in log.lines() {
         if let Some(_) = START.captures(line) {
-            in_jot = true;
-            get_date = true;
+            slurp_content = true;
             continue;
         }
 
-        if get_date {
+        if let Some(_) = DATE.captures(line) {
             creation_date = parse_date(line, &PTZ);
-            get_date = false;
             continue;
         }
 
@@ -70,7 +69,7 @@ fn parse_jot(log: String) -> Vec<Jot> {
         }
 
         if let Some(_) = END.captures(line) {
-            in_jot = false;
+            slurp_content = false;
 
             let jot = Jot {
                 content: content.trim().to_owned().clone(),
@@ -88,7 +87,7 @@ fn parse_jot(log: String) -> Vec<Jot> {
             continue;
         }
 
-        if in_jot {
+        if slurp_content {
             content = [&content, line].join("\n");
             continue;
         }
