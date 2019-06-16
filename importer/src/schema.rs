@@ -3,6 +3,7 @@ table! {
         jot_id -> Binary,
         jot_creation_date -> Nullable<Text>,
         jot_content -> Nullable<Text>,
+        device_id -> Nullable<Binary>,
     }
 }
 
@@ -11,7 +12,7 @@ table! {
         tag_id -> Binary,
         jot_id -> Binary,
         mapping_date -> Nullable<Text>,
-        mapping_id -> Integer,
+        mapping_id -> Binary,
     }
 }
 
@@ -20,6 +21,7 @@ table! {
         tag_id -> Binary,
         tag_creation_date -> Nullable<Text>,
         tag_text -> Nullable<Text>,
+        device_id -> Nullable<Binary>,
     }
 }
 

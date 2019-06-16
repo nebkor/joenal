@@ -1,6 +1,6 @@
 use chrono::prelude::*;
 use config;
-use diesel::{self, Queryable};
+use diesel::{self, sqlite, Queryable, SqliteConnection};
 use lazy_static::lazy_static;
 use regex::Regex;
 use std::path::Path;
@@ -10,12 +10,15 @@ use std::env;
 use std::fs::File;
 use std::io::prelude::*;
 
+use diesel::prelude::*;
+use dotenv::dotenv;
+
 const DSTRING: &str = "%Y-%m-%d %H:%M:%S";
 const HOUR: i32 = 3600;
 
 const NAMESPACE_JOT: &str = "930ccacb-5523-4be7-8045-f033465dae8f"; // v4 UUID used for constructing v5 UUIDs
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 struct Jot {
     content: String,
     creation_date: DateTime<FixedOffset>,
@@ -30,7 +33,14 @@ fn main() {
 
     let jots: Vec<Jot> = parse_jot(lawg);
 
-    println!("Parsed {} jots.", jots.len());
+    println!("jots: {:?}\n\nParsed {} jots.", &jots, jots.len());
+}
+
+fn get_db_connection() -> SqliteConnection {
+    dotenv().ok();
+    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    SqliteConnection::establish(&database_url)
+        .expect(&format!("Error connecting to {}", database_url))
 }
 
 fn parse_jot(log: String) -> Vec<Jot> {
@@ -45,7 +55,6 @@ fn parse_jot(log: String) -> Vec<Jot> {
 
     let mut jots: Vec<Jot> = Vec::new();
     let mut content = String::new();
-
     let mut creation_date: DateTime<FixedOffset> = PTZ.ymd(1973, 7, 13).and_hms(0, 0, 0);
     let mut tags = vec![];
 
@@ -62,11 +71,8 @@ fn parse_jot(log: String) -> Vec<Jot> {
                 creation_date: creation_date.clone(),
                 tags: tags.clone(),
             };
-
-            dbg!(&jot);
-
+            //dbg!(&jot);
             jots.push(jot);
-
             tags.clear();
             content.clear();
         } else {
@@ -99,7 +105,9 @@ fn get_config() -> config::Config {
     config
 }
 
-fn get_device_uuid() -> Uuid {
+fn insert_to_db() {}
+
+fn get_device_root() -> Uuid {
     let config = get_config();
 
     let dev_id = config.get_str("device_id").unwrap();
@@ -109,7 +117,5 @@ fn get_device_uuid() -> Uuid {
 }
 
 fn gen_uuid(root: &Uuid, content: &[u8]) -> Uuid {
-    let dev_id = get_device_uuid();
-
     Uuid::new_v5(root, content)
 }
