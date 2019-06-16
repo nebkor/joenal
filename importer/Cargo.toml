@@ -12,7 +12,8 @@ chrono = "*"
 lazy_static = "*"
 sha2 = "*"
 diesel = { version = "1", features = ["sqlite"] }
-# diesel_codegen = { version = "1", features = ["sqlite"] }
 dotenv = "*"
 uuid = { version = "*", default-features = false, features = ["v5", "v4"] }
 config = { version = "*", default-features = false, features = ["toml"] }
+tui = "*"
+sublime_fuzzy = "*"
