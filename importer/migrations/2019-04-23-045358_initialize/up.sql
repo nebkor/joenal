@@ -9,7 +9,7 @@ CREATE TABLE jots (
 CREATE TABLE tags (
        tag_id BLOB NOT NULL PRIMARY KEY,
        tag_creation_date TEXT,
-       tag_text TEXT,
+       tag_text TEXT NOT NULL,
        device_id BLOB
 );
 

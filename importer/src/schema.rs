@@ -20,7 +20,7 @@ table! {
     tags (tag_id) {
         tag_id -> Binary,
         tag_creation_date -> Nullable<Text>,
-        tag_text -> Nullable<Text>,
+        tag_text -> Text,
         device_id -> Nullable<Binary>,
     }
 }
@@ -28,8 +28,4 @@ table! {
 joinable!(tag_map -> jots (jot_id));
 joinable!(tag_map -> tags (tag_id));
 
-allow_tables_to_appear_in_same_query!(
-    jots,
-    tag_map,
-    tags,
-);
+allow_tables_to_appear_in_same_query!(jots, tag_map, tags,);
