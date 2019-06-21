@@ -13,5 +13,11 @@ fn main() {
 
     let jots: Vec<RawJot> = parse_lawg(lawg);
 
-    println!("jots: {:?}\n\nParsed {} jots.", &jots, jots.len());
+    let mut conn = importer::establish_connection();
+
+    for jot in jots {
+        dbg!(&jot);
+        let ret = importer::insert_jot(&conn, &jot);
+        println!("{}", ret);
+    }
 }

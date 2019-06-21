@@ -5,7 +5,9 @@ use chrono::prelude::*;
 use config;
 use diesel::{Queryable, SqliteConnection};
 use lazy_static::lazy_static;
+use rand::prelude::*;
 use regex::Regex;
+use std::mem::transmute;
 use std::path::Path;
 use uuid::Uuid;
 
@@ -21,7 +23,7 @@ const HOUR: i32 = 3600;
 const NAMESPACE_JOT: &str = "930ccacb-5523-4be7-8045-f033465dae8f"; // v4 UUID used for constructing v5 UUIDs
 
 pub mod models;
-//pub mod schema;
+pub mod schema;
 
 #[derive(Debug, PartialEq)]
 pub struct RawJot {
@@ -38,19 +40,32 @@ pub fn establish_connection() -> SqliteConnection {
         .expect(&format!("Error connecting to {}", database_url))
 }
 
-// pub fn create_post(conn: &SqliteConnection, jot: &RawJot) -> usize {
-//     use schema::*;
+pub fn insert_jot(conn: &SqliteConnection, jot: &RawJot) -> usize {
+    use schema::*;
+    let dev_root = get_device_root();
 
-//     let new_post = NewPost {
-//         title: title,
-//         body: body,
-//     };
+    let config = get_config();
+    let dev_id = config.get_str("device_id").unwrap();
+    let dev_id = Uuid::parse_str(&dev_id).unwrap();
 
-//     diesel::insert_into(jots::table)
-//         .values(&new_post)
-//         .execute(conn)
-//         .expect("Error saving new post")
-// }
+    let salt: i32 = random();
+    let salt_bytes: [u8; 4] = unsafe { transmute(salt.to_le()) };
+    let salted_content = [jot.content.as_bytes(), &salt_bytes].join(&0u8);
+    let jot_id = gen_uuid(&dev_root, &salted_content);
+
+    let new_post = models::Jot::new(
+        jot_id.as_bytes(),
+        Some(jot.creation_date.to_rfc3339()),
+        Some(jot.content.clone()),
+        Some(dev_id.as_bytes()),
+        salt,
+    );
+
+    diesel::insert_into(jots::table)
+        .values(&new_post)
+        .execute(conn)
+        .expect("Error saving new post")
+}
 
 pub fn parse_lawg(log: String) -> Vec<RawJot> {
     lazy_static! {
@@ -80,7 +95,6 @@ pub fn parse_lawg(log: String) -> Vec<RawJot> {
                 creation_date: creation_date.clone(),
                 tags: tags.clone(),
             };
-            //dbg!(&jot);
             jots.push(jot);
             tags.clear();
             content.clear();
@@ -120,14 +134,14 @@ fn get_config() -> config::Config {
     config
 }
 
-fn insert_to_db() {}
+fn get_device_id() -> Uuid {
+    let config = get_config();
+    let dev_id = config.get_str("device_id").unwrap();
+    Uuid::parse_str(&dev_id).unwrap()
+}
 
 fn get_device_root() -> Uuid {
-    let config = get_config();
-
-    let dev_id = config.get_str("device_id").unwrap();
-    let dev_id = Uuid::parse_str(&dev_id).unwrap();
-
+    let dev_id = get_device_id();
     return Uuid::new_v5(&Uuid::parse_str(NAMESPACE_JOT).unwrap(), dev_id.as_bytes());
 }
 

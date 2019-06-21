@@ -3,7 +3,8 @@ CREATE TABLE jots (
        jot_id BLOB NOT NULL PRIMARY KEY,
        jot_creation_date TEXT,
        jot_content TEXT,
-       device_id BLOB
+       device_id BLOB,
+       salt INTEGER NOT NULL
 );
 
 CREATE TABLE tags (

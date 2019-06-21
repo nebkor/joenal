@@ -17,3 +17,4 @@ uuid = { version = "*", default-features = false, features = ["v5", "v4"] }
 config = { version = "*", default-features = false, features = ["toml"] }
 tui = "*"
 sublime_fuzzy = "*"
+rand = "*"

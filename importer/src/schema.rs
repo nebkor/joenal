@@ -4,6 +4,7 @@ table! {
         jot_creation_date -> Nullable<Text>,
         jot_content -> Nullable<Text>,
         device_id -> Nullable<Binary>,
+        salt -> Integer,
     }
 }
 
@@ -28,4 +29,8 @@ table! {
 joinable!(tag_map -> jots (jot_id));
 joinable!(tag_map -> tags (tag_id));
 
-allow_tables_to_appear_in_same_query!(jots, tag_map, tags,);
+allow_tables_to_appear_in_same_query!(
+    jots,
+    tag_map,
+    tags,
+);
