@@ -2,7 +2,8 @@ table! {
     jots (jot_id) {
         jot_id -> Binary,
         jot_creation_date -> Nullable<Text>,
-        jot_content -> Nullable<Text>,
+        jot_content -> Binary,
+        jot_content_type -> Text,
         device_id -> Nullable<Binary>,
         salt -> Integer,
     }
@@ -23,6 +24,7 @@ table! {
         tag_creation_date -> Nullable<Text>,
         tag_text -> Text,
         device_id -> Nullable<Binary>,
+        score -> Integer,
     }
 }
 

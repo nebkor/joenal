@@ -18,3 +18,4 @@ config = { version = "*", default-features = false, features = ["toml"] }
 tui = "*"
 sublime_fuzzy = "*"
 rand = "*"
+mime = "0.3.13"

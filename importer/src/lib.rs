@@ -5,6 +5,7 @@ use chrono::prelude::*;
 use config;
 use diesel::{Queryable, SqliteConnection};
 use lazy_static::lazy_static;
+use mime::TEXT_PLAIN_UTF_8;
 use rand::prelude::*;
 use regex::Regex;
 use std::mem::transmute;
@@ -42,6 +43,11 @@ pub fn establish_connection() -> SqliteConnection {
 
 pub fn insert_jot(conn: &SqliteConnection, jot: &RawJot) -> usize {
     use schema::*;
+
+    lazy_static! {
+        static ref UTF_8_MIME: String = TEXT_PLAIN_UTF_8.to_string();
+    }
+
     let dev_root = get_device_root();
 
     let config = get_config();
@@ -56,7 +62,8 @@ pub fn insert_jot(conn: &SqliteConnection, jot: &RawJot) -> usize {
     let new_post = models::Jot::new(
         jot_id.as_bytes(),
         Some(jot.creation_date.to_rfc3339()),
-        Some(jot.content.clone()),
+        jot.content.as_bytes(),
+        UTF_8_MIME.as_str(),
         Some(dev_id.as_bytes()),
         salt,
     );

@@ -13,7 +13,7 @@ fn main() {
 
     let jots: Vec<RawJot> = parse_lawg(lawg);
 
-    let mut conn = importer::establish_connection();
+    let conn = importer::establish_connection();
 
     for jot in jots {
         dbg!(&jot);
