@@ -4,7 +4,7 @@ CREATE TABLE jots (
        jot_creation_date TEXT,
        jot_content BLOB NOT NULL,
        jot_content_type TEXT NOT NULL,
-       device_id BLOB,
+       device_id BLOB NOT NULL,
        salt INTEGER NOT NULL
 );
 
@@ -12,7 +12,7 @@ CREATE TABLE tags (
        tag_id BLOB NOT NULL PRIMARY KEY,
        tag_creation_date TEXT,
        tag_text TEXT NOT NULL,
-       device_id BLOB,
+       device_id BLOB NOT NULL,
        score INTEGER NOT NULL
 );
 

@@ -4,7 +4,7 @@ table! {
         jot_creation_date -> Nullable<Text>,
         jot_content -> Binary,
         jot_content_type -> Text,
-        device_id -> Nullable<Binary>,
+        device_id -> Binary,
         salt -> Integer,
     }
 }
@@ -23,7 +23,7 @@ table! {
         tag_id -> Binary,
         tag_creation_date -> Nullable<Text>,
         tag_text -> Text,
-        device_id -> Nullable<Binary>,
+        device_id -> Binary,
         score -> Integer,
     }
 }

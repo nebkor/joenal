@@ -56,7 +56,7 @@ pub fn insert_jot(conn: &SqliteConnection, jot: &RawJot) -> usize {
 
     let salt: i32 = random();
     let salt_bytes: [u8; 4] = unsafe { transmute(salt.to_le()) };
-    let salted_content = [jot.content.as_bytes(), &salt_bytes].join(&0u8);
+    let salted_content = [jot.content.as_bytes(), &salt_bytes].concat();
     let jot_id = gen_uuid(&dev_root, &salted_content);
 
     let new_post = models::Jot::new(
@@ -64,7 +64,7 @@ pub fn insert_jot(conn: &SqliteConnection, jot: &RawJot) -> usize {
         Some(jot.creation_date.to_rfc3339()),
         jot.content.as_bytes(),
         UTF_8_MIME.as_str(),
-        Some(dev_id.as_bytes()),
+        dev_id.as_bytes(),
         salt,
     );
 
