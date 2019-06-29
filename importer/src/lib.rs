@@ -14,7 +14,9 @@ use uuid::Uuid;
 
 use std::collections::BTreeSet;
 
+use diesel::dsl::*;
 use diesel::prelude::*;
+
 use dotenv::dotenv;
 use std::env;
 
@@ -42,34 +44,34 @@ pub fn establish_connection() -> SqliteConnection {
 }
 
 pub fn insert_jot(conn: &SqliteConnection, jot: &RawJot) -> usize {
-    use schema::*;
-
     lazy_static! {
         static ref UTF_8_MIME: String = TEXT_PLAIN_UTF_8.to_string();
     }
 
-    let dev_root = get_device_root();
+    let (jot_id, salt) = mk_jot_id(&jot.content.as_bytes());
+    let dev_id = get_device_id();
+    let creation_date = jot.creation_date.to_rfc3339();
 
-    let config = get_config();
-    let dev_id = config.get_str("device_id").unwrap();
-    let dev_id = Uuid::parse_str(&dev_id).unwrap();
-
-    let salt: i32 = random();
-    let salt_bytes: [u8; 4] = unsafe { transmute(salt.to_le()) };
-    let salted_content = [jot.content.as_bytes(), &salt_bytes].concat();
-    let jot_id = gen_uuid(&dev_root, &salted_content);
-
-    let new_post = models::Jot::new(
-        jot_id.as_bytes(),
-        Some(jot.creation_date.to_rfc3339()),
+    let new_jot = models::Jot::new(
+        jot_id.clone(),
+        Some(creation_date.clone()),
         jot.content.as_bytes(),
-        UTF_8_MIME.as_str(),
-        dev_id.as_bytes(),
+        UTF_8_MIME.clone(),
+        dev_id.clone(),
         salt,
     );
 
-    diesel::insert_into(jots::table)
-        .values(&new_post)
+    for tag in jot.tags.iter() {
+        let id = mk_tag_id(tag);
+
+        match schema::tags::table.find(id).first::<models::Tag>(&*conn) {
+            Ok(t) => println!("{:?}", t),
+            _ => (),
+        };
+    }
+
+    diesel::insert_into(schema::jots::table)
+        .values(&new_jot)
         .execute(conn)
         .expect("Error saving new post")
 }
@@ -141,17 +143,36 @@ fn get_config() -> config::Config {
     config
 }
 
-fn get_device_id() -> Uuid {
+fn get_device_id() -> String {
     let config = get_config();
     let dev_id = config.get_str("device_id").unwrap();
-    Uuid::parse_str(&dev_id).unwrap()
+    fmt_uuid(Uuid::parse_str(&dev_id).unwrap())
 }
 
-fn get_device_root() -> Uuid {
+fn get_jotlog_root() -> Uuid {
     let dev_id = get_device_id();
-    return Uuid::new_v5(&Uuid::parse_str(NAMESPACE_JOT).unwrap(), dev_id.as_bytes());
+    mk_jot_ns_uuid(dev_id.as_bytes())
 }
 
-fn gen_uuid(root: &Uuid, content: &[u8]) -> Uuid {
-    Uuid::new_v5(root, content)
+fn mk_jot_ns_uuid(data: &[u8]) -> Uuid {
+    let jot_ns = Uuid::parse_str(NAMESPACE_JOT).unwrap();
+
+    Uuid::new_v5(&jot_ns, data)
+}
+
+fn fmt_uuid(u: Uuid) -> String {
+    format!("{}", u.to_simple())
+}
+
+fn mk_tag_id(tag: &str) -> String {
+    fmt_uuid(mk_jot_ns_uuid(tag.as_bytes()))
+}
+
+fn mk_jot_id(content: &[u8]) -> (String, i32) {
+    let jotlog_root = get_jotlog_root();
+    let salt: i32 = random();
+    let salt_bytes: [u8; 4] = unsafe { transmute(salt.to_le()) };
+    let salted_content = [content, &salt_bytes].concat();
+    let jot_id = Uuid::new_v5(&jotlog_root, &salted_content);
+    (fmt_uuid(jot_id), salt)
 }
