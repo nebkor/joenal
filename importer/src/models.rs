@@ -1,5 +1,7 @@
 use super::schema::*;
 
+use std::fmt::Display;
+
 #[derive(Queryable, Insertable, Debug)]
 #[table_name = "jots"]
 pub struct Jot<'j> {
@@ -28,6 +30,23 @@ impl<'j> Jot<'j> {
             device_id,
             salt,
         }
+    }
+}
+
+impl Display for Jot<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let date = match self.jot_creation_date {
+            Some(ref d) => d.clone(),
+            _ => "No date".to_owned(),
+        };
+
+        write!(
+            f,
+            "{}\n{}\n{}",
+            self.jot_id,
+            date,
+            std::str::from_utf8(self.jot_content).unwrap()
+        )
     }
 }
 
@@ -81,5 +100,11 @@ impl Tag {
             device_id,
             score,
         }
+    }
+}
+
+impl Display for Tag {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", self.tag_text)
     }
 }

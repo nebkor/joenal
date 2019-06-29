@@ -61,14 +61,18 @@ pub fn insert_jot(conn: &SqliteConnection, jot: &RawJot) -> usize {
         salt,
     );
 
+    println!("Jot {} with tags:", &new_jot);
+
     for tag in jot.tags.iter() {
         let id = mk_tag_id(tag);
 
         match schema::tags::table.find(id).first::<models::Tag>(&*conn) {
-            Ok(t) => println!("{:?}", t),
-            _ => (),
+            Ok(t) => println!("{}", t),
+            _ => println!("new tag: '{}'", &tag),
         };
     }
+
+    println!("\n---\n");
 
     diesel::insert_into(schema::jots::table)
         .values(&new_jot)

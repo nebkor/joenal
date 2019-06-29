@@ -1,14 +1,18 @@
 #!/bin/bash
 
-logline=`git log -1 --pretty=oneline`
+logline=`git log -1 --pretty=format:'%B'`
 
 cdir=$(readlink -f $(pwd))
 host=$(/bin/hostname)
 remotes=$(git remote -v |sed 's/(.*$//' |sort |uniq)
+branch=$(git rev-parse --abbrev-ref HEAD)
 
 ${HOME}/bin/_jot -t host\:$host -t headless -t git-commit -m "Committed:
+---
 $logline
+---
 
-in GIT_WORKING_DIR=$cdir
-with remotes:
+branch: $branch
+GIT_WORKING_DIR=$cdir
+remotes:
 $remotes" --headless
