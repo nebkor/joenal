@@ -48,7 +48,7 @@ pub fn insert_jot(conn: &SqliteConnection, jot: &RawJot) -> usize {
         static ref UTF_8_MIME: String = TEXT_PLAIN_UTF_8.to_string();
     }
 
-    let (jot_id, salt) = mk_jot_id(&jot.content.as_bytes());
+    let jot_id = mk_jot_id(&jot.content.as_bytes());
     let dev_id = get_device_id();
     let creation_date = jot.creation_date.to_rfc3339();
 
@@ -58,26 +58,57 @@ pub fn insert_jot(conn: &SqliteConnection, jot: &RawJot) -> usize {
         jot.content.as_bytes(),
         UTF_8_MIME.clone(),
         dev_id.clone(),
-        salt,
     );
 
     println!("Jot {} with tags:", &new_jot);
 
     for tag in jot.tags.iter() {
         let id = mk_tag_id(tag);
-
-        match schema::tags::table.find(id).first::<models::Tag>(&*conn) {
-            Ok(t) => println!("{}", t),
-            _ => println!("new tag: '{}'", &tag),
+        let old_score = match schema::tags::table.find(&id).first::<models::Tag>(&*conn) {
+            Ok(t) => t.get_score(),
+            _ => 0,
         };
+
+        let new_score = old_score + 1;
+
+        let new_tag = models::Tag::new(
+            tag.clone(),
+            id.clone(),
+            dev_id.clone(),
+            Some(creation_date.clone()),
+            new_score,
+        );
+
+        match diesel::insert_into(schema::tags::table)
+            .values(&new_tag)
+            .execute(&*conn)
+        {
+            Ok(num_rows) => num_rows,
+            _ => diesel::update(schema::tags::table.filter(schema::tags::tag_id.eq(&id)))
+                .set(schema::tags::score.eq(new_score))
+                .execute(&*conn)
+                .unwrap(),
+        };
+
+        println!("{}", &new_tag);
     }
 
     println!("\n---\n");
 
-    diesel::insert_into(schema::jots::table)
+    match diesel::insert_into(schema::jots::table)
         .values(&new_jot)
-        .execute(conn)
-        .expect("Error saving new post")
+        .execute(&*conn)
+    {
+        Ok(num_rows) => num_rows,
+        _ => {
+            let dup_id = fmt_uuid(Uuid::new_v4());
+            let dup = models::Dup::new(dup_id, jot_id.clone(), Some(creation_date.clone()));
+            diesel::insert_into(schema::dup_jots::table)
+                .values(&dup)
+                .execute(&*conn)
+                .unwrap_or(1)
+        }
+    }
 }
 
 pub fn parse_lawg(log: String) -> Vec<RawJot> {
@@ -172,11 +203,8 @@ fn mk_tag_id(tag: &str) -> String {
     fmt_uuid(mk_jot_ns_uuid(tag.as_bytes()))
 }
 
-fn mk_jot_id(content: &[u8]) -> (String, i32) {
+fn mk_jot_id(content: &[u8]) -> String {
     let jotlog_root = get_jotlog_root();
-    let salt: i32 = random();
-    let salt_bytes: [u8; 4] = unsafe { transmute(salt.to_le()) };
-    let salted_content = [content, &salt_bytes].concat();
-    let jot_id = Uuid::new_v5(&jotlog_root, &salted_content);
-    (fmt_uuid(jot_id), salt)
+    let jot_id = Uuid::new_v5(&jotlog_root, content);
+    fmt_uuid(jot_id)
 }
