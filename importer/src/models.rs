@@ -1,26 +1,7 @@
 use super::schema::*;
 
 use std::cmp::{Eq, PartialEq};
-use std::collections::HashSet;
 use std::fmt::Display;
-
-#[derive(Queryable, Insertable)]
-#[table_name = "dup_jots"]
-pub struct Dup {
-    dup_id: String,
-    jot_id: String,
-    dup_date: Option<String>,
-}
-
-impl Dup {
-    pub fn new(dup_id: String, jot_id: String, dup_date: Option<String>) -> Self {
-        Dup {
-            dup_id,
-            jot_id,
-            dup_date,
-        }
-    }
-}
 
 #[derive(Queryable, Insertable, Debug)]
 #[table_name = "jots"]
@@ -30,6 +11,7 @@ pub struct Jot<'j> {
     jot_content: &'j [u8],
     jot_content_type: String,
     device_id: String,
+    dup_id: Option<String>,
 }
 
 impl<'j> Jot<'j> {
@@ -39,6 +21,7 @@ impl<'j> Jot<'j> {
         jot_content: &'j [u8],
         jot_content_type: String,
         device_id: String,
+        dup_id: Option<String>,
     ) -> Self {
         Jot {
             jot_id,
@@ -46,6 +29,7 @@ impl<'j> Jot<'j> {
             jot_content,
             jot_content_type,
             device_id,
+            dup_id,
         }
     }
 }
@@ -67,7 +51,7 @@ impl Display for Jot<'_> {
 
         write!(
             f,
-            "{}\n{}\n{}",
+            "Jot: {}\nCreated: {}\n\n{}\n",
             self.jot_id,
             date,
             std::str::from_utf8(self.jot_content).unwrap()

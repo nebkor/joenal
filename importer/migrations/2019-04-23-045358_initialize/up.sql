@@ -5,7 +5,7 @@ CREATE TABLE jots (
        jot_content BLOB NOT NULL,
        jot_content_type TEXT NOT NULL,
        device_id TEXT NOT NULL,
-       salt INTEGER NOT NULL
+       dup_id TEXT
 );
 
 CREATE TABLE tags (
@@ -23,10 +23,4 @@ CREATE TABLE tag_map (
        mapping_id TEXT NOT NULL PRIMARY KEY,
        FOREIGN KEY (tag_id) REFERENCES tags (tag_id) ON DELETE CASCADE ON UPDATE NO ACTION,
        FOREIGN KEY (jot_id) REFERENCES jots (jot_id) ON DELETE CASCADE ON UPDATE NO ACTION
-);
-
-CREATE TABLE dup_jots (
-       dup_id TEXT NOT NULL PRIMARY KEY,
-       jot_id TEXT NOT NULL,
-       dup_date TEXT
 );

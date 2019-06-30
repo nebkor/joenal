@@ -43,14 +43,30 @@ pub fn establish_connection() -> SqliteConnection {
         .expect(&format!("Error connecting to {}", database_url))
 }
 
-pub fn insert_jot(conn: &SqliteConnection, jot: &RawJot) -> usize {
+pub fn insert_jot(conn: &SqliteConnection, jot: RawJot) {
     lazy_static! {
         static ref UTF_8_MIME: String = TEXT_PLAIN_UTF_8.to_string();
     }
 
-    let jot_id = mk_jot_id(&jot.content.as_bytes());
+    let mut jot_id = mk_jot_id(&jot.content.as_bytes());
     let dev_id = get_device_id();
     let creation_date = jot.creation_date.to_rfc3339();
+
+    let mut dup_id: Option<String> = None;
+
+    match schema::jots::table
+        .filter(schema::jots::jot_id.eq(&jot_id))
+        .count()
+        .execute(&*conn)
+    {
+        Ok(num_rows) => {
+            if num_rows > 0 {
+                dup_id = Some(jot_id.clone());
+                jot_id = fmt_uuid(Uuid::new_v4());
+            }
+        }
+        _ => panic!(),
+    };
 
     let new_jot = models::Jot::new(
         jot_id.clone(),
@@ -58,9 +74,13 @@ pub fn insert_jot(conn: &SqliteConnection, jot: &RawJot) -> usize {
         jot.content.as_bytes(),
         UTF_8_MIME.clone(),
         dev_id.clone(),
+        dup_id,
     );
 
-    println!("Jot {} with tags:", &new_jot);
+    diesel::insert_into(schema::jots::table)
+        .values(&new_jot)
+        .execute(&*conn)
+        .expect(&format!("couldn't insert {} into jots table.", &new_jot));
 
     for tag in jot.tags.iter() {
         let id = mk_tag_id(tag);
@@ -79,34 +99,16 @@ pub fn insert_jot(conn: &SqliteConnection, jot: &RawJot) -> usize {
             new_score,
         );
 
-        match diesel::insert_into(schema::tags::table)
-            .values(&new_tag)
-            .execute(&*conn)
-        {
-            Ok(num_rows) => num_rows,
-            _ => diesel::update(schema::tags::table.filter(schema::tags::tag_id.eq(&id)))
+        if old_score == 0 {
+            diesel::insert_into(schema::tags::table)
+                .values(&new_tag)
+                .execute(&*conn)
+                .unwrap();
+        } else {
+            diesel::update(schema::tags::table.filter(schema::tags::tag_id.eq(&id)))
                 .set(schema::tags::score.eq(new_score))
                 .execute(&*conn)
-                .unwrap(),
-        };
-
-        println!("{}", &new_tag);
-    }
-
-    println!("\n---\n");
-
-    match diesel::insert_into(schema::jots::table)
-        .values(&new_jot)
-        .execute(&*conn)
-    {
-        Ok(num_rows) => num_rows,
-        _ => {
-            let dup_id = fmt_uuid(Uuid::new_v4());
-            let dup = models::Dup::new(dup_id, jot_id.clone(), Some(creation_date.clone()));
-            diesel::insert_into(schema::dup_jots::table)
-                .values(&dup)
-                .execute(&*conn)
-                .unwrap_or(1)
+                .unwrap();
         }
     }
 }
@@ -154,6 +156,7 @@ fn parse_tags(tagline: &str) -> Vec<String> {
     let tags: BTreeSet<String> = tagline
         .split(",")
         .map(|t| t.trim().to_owned())
+        .filter(|t| t.len() > 0)
         .map(|t| t.to_lowercase())
         .collect();
 
@@ -207,4 +210,9 @@ fn mk_jot_id(content: &[u8]) -> String {
     let jotlog_root = get_jotlog_root();
     let jot_id = Uuid::new_v5(&jotlog_root, content);
     fmt_uuid(jot_id)
+}
+
+fn mk_mapping_id(jot_id: &str, tag_id: &str) -> String {
+    let mapping_id = mk_jot_ns_uuid(&[jot_id.as_bytes(), tag_id.as_bytes()].concat());
+    fmt_uuid(mapping_id)
 }

@@ -1,19 +1,11 @@
 table! {
-    dup_jots (dup_id) {
-        dup_id -> Text,
-        jot_id -> Text,
-        dup_date -> Nullable<Text>,
-    }
-}
-
-table! {
     jots (jot_id) {
         jot_id -> Text,
         jot_creation_date -> Nullable<Text>,
         jot_content -> Binary,
         jot_content_type -> Text,
         device_id -> Text,
-        salt -> Integer,
+        dup_id -> Nullable<Text>,
     }
 }
 
@@ -40,7 +32,6 @@ joinable!(tag_map -> jots (jot_id));
 joinable!(tag_map -> tags (tag_id));
 
 allow_tables_to_appear_in_same_query!(
-    dup_jots,
     jots,
     tag_map,
     tags,

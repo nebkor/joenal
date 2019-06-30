@@ -16,6 +16,6 @@ fn main() {
     let conn = importer::establish_connection();
 
     for jot in jots {
-        importer::insert_jot(&conn, &jot);
+        importer::insert_jot(&conn, jot);
     }
 }
