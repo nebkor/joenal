@@ -17,10 +17,10 @@ CREATE TABLE tags (
 );
 
 CREATE TABLE tag_map (
+       mapping_id TEXT NOT NULL PRIMARY KEY,
        tag_id TEXT NOT NULL,
        jot_id TEXT NOT NULL,
        mapping_date TEXT,
-       mapping_id TEXT NOT NULL PRIMARY KEY,
        FOREIGN KEY (tag_id) REFERENCES tags (tag_id) ON DELETE CASCADE ON UPDATE NO ACTION,
        FOREIGN KEY (jot_id) REFERENCES jots (jot_id) ON DELETE CASCADE ON UPDATE NO ACTION
 );

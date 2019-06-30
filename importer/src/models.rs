@@ -76,10 +76,10 @@ impl Mapping {
         mapping_date: Option<String>,
     ) -> Self {
         Mapping {
+            mapping_id,
             tag_id,
             jot_id,
             mapping_date,
-            mapping_id,
         }
     }
 }

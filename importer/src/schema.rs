@@ -11,10 +11,10 @@ table! {
 
 table! {
     tag_map (mapping_id) {
+        mapping_id -> Text,
         tag_id -> Text,
         jot_id -> Text,
         mapping_date -> Nullable<Text>,
-        mapping_id -> Text,
     }
 }
 

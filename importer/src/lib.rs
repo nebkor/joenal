@@ -3,18 +3,15 @@ extern crate diesel;
 
 use chrono::prelude::*;
 use config;
-use diesel::{Queryable, SqliteConnection};
+use diesel::SqliteConnection;
 use lazy_static::lazy_static;
 use mime::TEXT_PLAIN_UTF_8;
-use rand::prelude::*;
 use regex::Regex;
-use std::mem::transmute;
 use std::path::Path;
 use uuid::Uuid;
 
 use std::collections::BTreeSet;
 
-use diesel::dsl::*;
 use diesel::prelude::*;
 
 use dotenv::dotenv;
@@ -43,7 +40,7 @@ pub fn establish_connection() -> SqliteConnection {
         .expect(&format!("Error connecting to {}", database_url))
 }
 
-pub fn insert_jot(conn: &SqliteConnection, jot: RawJot) {
+pub fn insert_jot(conn: &SqliteConnection, jot: &RawJot) {
     lazy_static! {
         static ref UTF_8_MIME: String = TEXT_PLAIN_UTF_8.to_string();
     }
@@ -110,6 +107,17 @@ pub fn insert_jot(conn: &SqliteConnection, jot: RawJot) {
                 .execute(&*conn)
                 .unwrap();
         }
+
+        // now the mapping
+        let mapping_id = mk_mapping_id(&jot_id, &id);
+
+        let mapping =
+            models::Mapping::new(mapping_id, id, jot_id.clone(), Some(creation_date.clone()));
+
+        diesel::insert_into(schema::tag_map::table)
+            .values(&mapping)
+            .execute(&*conn)
+            .expect("couldn't insert mapping");
     }
 }
 
@@ -129,16 +137,16 @@ pub fn parse_lawg(log: String) -> Vec<RawJot> {
     let mut tags = vec![];
 
     for line in log.lines() {
-        if let Some(_) = START.captures(line) {
+        if START.captures(line).is_some() {
             continue;
-        } else if let Some(_) = DATE.captures(line) {
-            creation_date = parse_date(line, &PTZ);
+        } else if DATE.captures(line).is_some() {
+            creation_date = parse_date(line, *PTZ);
         } else if let Some(tagline) = TAGS.captures(line) {
             tags = parse_tags(&tagline[1]);
-        } else if let Some(_) = END.captures(line) {
+        } else if END.captures(line).is_some() {
             let jot = RawJot {
                 content: content.trim().to_owned().clone(),
-                creation_date: creation_date.clone(),
+                creation_date,
                 tags: tags.clone(),
             };
             jots.push(jot);
@@ -154,16 +162,16 @@ pub fn parse_lawg(log: String) -> Vec<RawJot> {
 
 fn parse_tags(tagline: &str) -> Vec<String> {
     let tags: BTreeSet<String> = tagline
-        .split(",")
+        .split(',')
         .map(|t| t.trim().to_owned())
-        .filter(|t| t.len() > 0)
+        .filter(|t| !t.is_empty())
         .map(|t| t.to_lowercase())
         .collect();
 
     tags.into_iter().collect()
 }
 
-fn parse_date(dstring: &str, tz: &FixedOffset) -> DateTime<FixedOffset> {
+fn parse_date(dstring: &str, tz: FixedOffset) -> DateTime<FixedOffset> {
     tz.datetime_from_str(dstring, DSTRING).unwrap()
 }
 
