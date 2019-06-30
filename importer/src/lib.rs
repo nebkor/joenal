@@ -37,7 +37,7 @@ pub fn establish_connection() -> SqliteConnection {
 
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     SqliteConnection::establish(&database_url)
-        .expect(&format!("Error connecting to {}", database_url))
+        .unwrap_or_else(|_| panic!("Error connecting to {}", database_url))
 }
 
 pub fn insert_jot(conn: &SqliteConnection, jot: &RawJot) {
@@ -77,7 +77,7 @@ pub fn insert_jot(conn: &SqliteConnection, jot: &RawJot) {
     diesel::insert_into(schema::jots::table)
         .values(&new_jot)
         .execute(&*conn)
-        .expect(&format!("couldn't insert {} into jots table.", &new_jot));
+        .unwrap_or_else(|_| panic!("couldn't insert {} into jots table.", &new_jot));
 
     for tag in jot.tags.iter() {
         let id = mk_tag_id(tag);
@@ -123,13 +123,15 @@ pub fn insert_jot(conn: &SqliteConnection, jot: &RawJot) {
 
 pub fn parse_lawg(log: String) -> Vec<RawJot> {
     lazy_static! {
-        static ref START: Regex = Regex::new(r"^%%START%%$").unwrap();
-        static ref END: Regex = Regex::new(r"^%%END%%").unwrap();
         static ref TAGS: Regex = Regex::new(r"^%%TAGS%% (.*)$").unwrap();
         static ref PTZ: FixedOffset = FixedOffset::west(7 * HOUR);
         static ref DATE: Regex =
             Regex::new(r"^([0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2})").unwrap();
     }
+    #[allow(non_snake_case)]
+    let START = "%%START%%";
+    #[allow(non_snake_case)]
+    let END = "%%END%%";
 
     let mut jots: Vec<RawJot> = Vec::new();
     let mut content = String::new();
@@ -137,13 +139,13 @@ pub fn parse_lawg(log: String) -> Vec<RawJot> {
     let mut tags = vec![];
 
     for line in log.lines() {
-        if START.captures(line).is_some() {
+        if START == line {
             continue;
         } else if DATE.captures(line).is_some() {
             creation_date = parse_date(line, *PTZ);
         } else if let Some(tagline) = TAGS.captures(line) {
             tags = parse_tags(&tagline[1]);
-        } else if END.captures(line).is_some() {
+        } else if END == line {
             let jot = RawJot {
                 content: content.trim().to_owned().clone(),
                 creation_date,
