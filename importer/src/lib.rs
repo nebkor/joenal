@@ -2,42 +2,30 @@
 extern crate diesel;
 
 use chrono::prelude::*;
-use config;
-use diesel::SqliteConnection;
+
 use lazy_static::lazy_static;
 use mime::TEXT_PLAIN_UTF_8;
 use regex::Regex;
-use std::path::Path;
 use uuid::Uuid;
 
 use std::collections::BTreeSet;
 
-use diesel::prelude::*;
+mod db;
+mod models;
+mod schema;
+mod util;
 
-use dotenv::dotenv;
-use std::env;
+pub use db::*;
+use util::*;
 
 const DSTRING: &str = "%Y-%m-%d %H:%M:%S";
 const HOUR: i32 = 3600;
-
-const NAMESPACE_JOT: &str = "930ccacb-5523-4be7-8045-f033465dae8f"; // v4 UUID used for constructing v5 UUIDs
-
-pub mod models;
-pub mod schema;
 
 #[derive(Debug, PartialEq)]
 pub struct RawJot {
     content: String,
     creation_date: DateTime<FixedOffset>,
     tags: Vec<String>,
-}
-
-pub fn establish_connection() -> SqliteConnection {
-    dotenv().ok();
-
-    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-    SqliteConnection::establish(&database_url)
-        .unwrap_or_else(|_| panic!("Error connecting to {}", database_url))
 }
 
 pub fn insert_jot(conn: &SqliteConnection, jot: &RawJot) {
@@ -49,13 +37,14 @@ pub fn insert_jot(conn: &SqliteConnection, jot: &RawJot) {
     let dev_id = get_device_id();
     let creation_date = jot.creation_date.to_rfc3339();
 
-    let mut dup_id: Option<String> = None;
+    let mut dup_id: Option<Vec<u8>> = None;
 
-    match schema::jots::table
+    let jot_count: Result<i64, _> = schema::jots::table
         .filter(schema::jots::jot_id.eq(&jot_id))
         .count()
-        .execute(&*conn)
-    {
+        .get_result(&*conn);
+
+    match jot_count {
         Ok(num_rows) => {
             if num_rows > 0 {
                 dup_id = Some(jot_id.clone());
@@ -68,7 +57,7 @@ pub fn insert_jot(conn: &SqliteConnection, jot: &RawJot) {
     let new_jot = models::Jot::new(
         jot_id.clone(),
         Some(creation_date.clone()),
-        jot.content.as_bytes(),
+        jot.content.as_bytes().to_vec(),
         UTF_8_MIME.clone(),
         dev_id.clone(),
         dup_id,
@@ -175,54 +164,4 @@ fn parse_tags(tagline: &str) -> Vec<String> {
 
 fn parse_date(dstring: &str, tz: FixedOffset) -> DateTime<FixedOffset> {
     tz.datetime_from_str(dstring, DSTRING).unwrap()
-}
-
-fn get_config() -> config::Config {
-    let mut config = config::Config::default();
-
-    if let Ok(home) = env::var("HOME") {
-        let conf = Path::new(&home).join(".config").join("jotlog");
-        return config
-            .merge(config::File::with_name(conf.to_str().unwrap()))
-            .unwrap()
-            .clone();
-    }
-
-    config
-}
-
-fn get_device_id() -> String {
-    let config = get_config();
-    let dev_id = config.get_str("device_id").unwrap();
-    fmt_uuid(Uuid::parse_str(&dev_id).unwrap())
-}
-
-fn get_jotlog_root() -> Uuid {
-    let dev_id = get_device_id();
-    mk_jot_ns_uuid(dev_id.as_bytes())
-}
-
-fn mk_jot_ns_uuid(data: &[u8]) -> Uuid {
-    let jot_ns = Uuid::parse_str(NAMESPACE_JOT).unwrap();
-
-    Uuid::new_v5(&jot_ns, data)
-}
-
-fn fmt_uuid(u: Uuid) -> String {
-    format!("{}", u.to_simple())
-}
-
-fn mk_tag_id(tag: &str) -> String {
-    fmt_uuid(mk_jot_ns_uuid(tag.as_bytes()))
-}
-
-fn mk_jot_id(content: &[u8]) -> String {
-    let jotlog_root = get_jotlog_root();
-    let jot_id = Uuid::new_v5(&jotlog_root, content);
-    fmt_uuid(jot_id)
-}
-
-fn mk_mapping_id(jot_id: &str, tag_id: &str) -> String {
-    let mapping_id = mk_jot_ns_uuid(&[jot_id.as_bytes(), tag_id.as_bytes()].concat());
-    fmt_uuid(mapping_id)
 }

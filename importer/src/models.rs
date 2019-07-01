@@ -1,27 +1,28 @@
 use super::schema::*;
+use super::Uuid;
 
 use std::cmp::{Eq, PartialEq};
 use std::fmt::Display;
 
 #[derive(Queryable, Insertable, Debug)]
 #[table_name = "jots"]
-pub struct Jot<'j> {
-    jot_id: String,
+pub struct Jot {
+    jot_id: Vec<u8>,
     jot_creation_date: Option<String>,
-    jot_content: &'j [u8],
+    jot_content: Vec<u8>,
     jot_content_type: String,
-    device_id: String,
-    dup_id: Option<String>,
+    device_id: Vec<u8>,
+    dup_id: Option<Vec<u8>>,
 }
 
-impl<'j> Jot<'j> {
+impl Jot {
     pub fn new(
-        jot_id: String,
+        jot_id: Vec<u8>,
         jot_creation_date: Option<String>,
-        jot_content: &'j [u8],
+        jot_content: Vec<u8>,
         jot_content_type: String,
-        device_id: String,
-        dup_id: Option<String>,
+        device_id: Vec<u8>,
+        dup_id: Option<Vec<u8>>,
     ) -> Self {
         Jot {
             jot_id,
@@ -34,15 +35,15 @@ impl<'j> Jot<'j> {
     }
 }
 
-impl PartialEq for Jot<'_> {
+impl PartialEq for Jot {
     fn eq(&self, other: &Self) -> bool {
         self.jot_id == other.jot_id
     }
 }
 
-impl Eq for Jot<'_> {}
+impl Eq for Jot {}
 
-impl Display for Jot<'_> {
+impl Display for Jot {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         let date = match self.jot_creation_date {
             Some(ref d) => d.clone(),
@@ -52,9 +53,9 @@ impl Display for Jot<'_> {
         write!(
             f,
             "Jot: {}\nCreated: {}\n\n{}\n",
-            self.jot_id,
+            Uuid::from_slice(&self.jot_id).unwrap().to_simple(),
             date,
-            std::str::from_utf8(self.jot_content).unwrap()
+            std::str::from_utf8(&self.jot_content).unwrap()
         )
     }
 }
@@ -62,17 +63,17 @@ impl Display for Jot<'_> {
 #[derive(Queryable, Insertable, Debug)]
 #[table_name = "tag_map"]
 pub struct Mapping {
-    mapping_id: String,
-    tag_id: String,
-    jot_id: String,
+    mapping_id: Vec<u8>,
+    tag_id: Vec<u8>,
+    jot_id: Vec<u8>,
     mapping_date: Option<String>,
 }
 
 impl Mapping {
     pub fn new(
-        mapping_id: String,
-        tag_id: String,
-        jot_id: String,
+        mapping_id: Vec<u8>,
+        tag_id: Vec<u8>,
+        jot_id: Vec<u8>,
         mapping_date: Option<String>,
     ) -> Self {
         Mapping {
@@ -87,18 +88,18 @@ impl Mapping {
 #[derive(Queryable, Insertable, Debug)]
 #[table_name = "tags"]
 pub struct Tag {
-    tag_id: String,
+    tag_id: Vec<u8>,
     tag_creation_date: Option<String>,
     tag_text: String,
-    device_id: String,
+    device_id: Vec<u8>,
     score: i32,
 }
 
 impl Tag {
     pub fn new(
         tag_text: String,
-        tag_id: String,
-        device_id: String,
+        tag_id: Vec<u8>,
+        device_id: Vec<u8>,
         tag_creation_date: Option<String>,
         score: i32,
     ) -> Self {

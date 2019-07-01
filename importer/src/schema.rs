@@ -1,29 +1,29 @@
 table! {
     jots (jot_id) {
-        jot_id -> Text,
+        jot_id -> Binary,
         jot_creation_date -> Nullable<Text>,
         jot_content -> Binary,
         jot_content_type -> Text,
-        device_id -> Text,
-        dup_id -> Nullable<Text>,
+        device_id -> Binary,
+        dup_id -> Nullable<Binary>,
     }
 }
 
 table! {
     tag_map (mapping_id) {
-        mapping_id -> Text,
-        tag_id -> Text,
-        jot_id -> Text,
+        mapping_id -> Binary,
+        tag_id -> Binary,
+        jot_id -> Binary,
         mapping_date -> Nullable<Text>,
     }
 }
 
 table! {
     tags (tag_id) {
-        tag_id -> Text,
+        tag_id -> Binary,
         tag_creation_date -> Nullable<Text>,
         tag_text -> Text,
-        device_id -> Text,
+        device_id -> Binary,
         score -> Integer,
     }
 }
