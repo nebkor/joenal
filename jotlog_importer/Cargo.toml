@@ -1,5 +1,5 @@
 [package]
-name = "importer"
+name = "jotlog-importer"
 version = "0.1.0"
 authors = ["Joe Ardent <code@ardent.nebcorp.com>"]
 edition = "2018"
@@ -10,12 +10,12 @@ clap = "2"
 time = "*"
 chrono = "*"
 lazy_static = "*"
-sha2 = "*"
 diesel = { version = "1", features = ["sqlite"] }
+diesel_migrations = "*"
 dotenv = "*"
 uuid = { version = "*", default-features = false, features = ["v5", "v4"] }
 config = { version = "*", default-features = false, features = ["toml"] }
-tui = "*"
-sublime_fuzzy = "*"
-rand = "*"
+serde = { version = "1", features = ["derive"] }
+confy = "*"
+
 mime = "0.3.13"

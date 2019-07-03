@@ -1,28 +1,38 @@
 use super::Uuid;
-use config;
+use confy;
 
-use std::env;
+use serde::{Deserialize, Serialize};
+
 use std::path::Path;
 
 const NAMESPACE_JOT: &str = "930ccacb-5523-4be7-8045-f033465dae8f"; // v4 UUID used for constructing v5 UUIDs
 
-pub fn get_config() -> config::Config {
-    let mut config = config::Config::default();
+#[derive(Serialize, Deserialize, Debug)]
+pub struct JotlogConfig {
+    pub dev_id: String,
+    pub db_file: String,
+}
 
-    if let Ok(home) = env::var("HOME") {
-        let conf = Path::new(&home).join(".config").join("jotlog");
-        return config
-            .merge(config::File::with_name(conf.to_str().unwrap()))
-            .unwrap()
-            .clone();
+impl Default for JotlogConfig {
+    fn default() -> Self {
+        let dev_id = Uuid::new_v4();
+        let db_file = Path::new(&std::env::var("HOME").unwrap())
+            .join(".jotlog")
+            .join("jotlog.db");
+
+        JotlogConfig {
+            dev_id: dev_id.to_hyphenated().to_string(),
+            db_file: db_file.to_str().unwrap().to_owned(),
+        }
     }
+}
 
-    config
+pub fn get_config() -> JotlogConfig {
+    confy::load("jotlog").unwrap()
 }
 
 pub fn get_device_id() -> Vec<u8> {
-    let config = get_config();
-    let dev_id = config.get_str("device_id").unwrap();
+    let dev_id = get_config().dev_id;
     fmt_uuid(Uuid::parse_str(&dev_id).unwrap())
 }
 

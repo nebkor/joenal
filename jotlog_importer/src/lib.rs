@@ -16,7 +16,7 @@ mod schema;
 mod util;
 
 pub use db::*;
-use util::*;
+pub use util::*;
 
 const DSTRING: &str = "%Y-%m-%d %H:%M:%S";
 const HOUR: i32 = 3600;
