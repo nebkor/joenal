@@ -16,9 +16,7 @@ pub struct JotlogConfig {
 impl Default for JotlogConfig {
     fn default() -> Self {
         let dev_id = Uuid::new_v4();
-        let db_file = Path::new(&std::env::var("HOME").unwrap())
-            .join(".jotlog")
-            .join("jotlog.db");
+        let db_file = Path::new(&std::env::var("HOME").unwrap()).join(".jotlog.sqlite");
 
         JotlogConfig {
             dev_id: dev_id.to_hyphenated().to_string(),

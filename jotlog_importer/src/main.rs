@@ -8,7 +8,7 @@ use clap::{App, Arg, ArgMatches};
 use jotlog_importer::{get_config, parse_lawg, RawJot};
 
 const DEFAULT_LAWG: &str = "~/.kaptanslawg";
-const DEFAULT_DB: &str = "~/.jotlog/jotlog.sqlite";
+const DEFAULT_DB: &str = "~/.jotlog.sqlite";
 
 fn main() {
     let args = get_args();
@@ -45,9 +45,7 @@ fn get_db(args: &ArgMatches<'_>) -> String {
     let path = args.value_of("DB_PATH").unwrap();
 
     let path = if path == DEFAULT_DB {
-        Path::new(&env::var("HOME").unwrap())
-            .join(".jotlog")
-            .join("jotlog.db")
+        Path::new(&env::var("HOME").unwrap()).join(".jotlog.sqlite")
     } else {
         Path::new(path).to_path_buf()
     };
