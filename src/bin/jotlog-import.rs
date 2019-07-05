@@ -5,7 +5,8 @@ use std::path::{Path, PathBuf};
 
 use clap::{App, Arg, ArgMatches};
 
-use jotlog_importer::{get_config, parse_lawg, RawJot};
+use jotlog::RawJot;
+use jotlog::{get_config, parse_lawg};
 
 const DEFAULT_LAWG: &str = "~/.kaptanslawg";
 const DEFAULT_DB: &str = "~/.jotlog.sqlite";
@@ -23,11 +24,11 @@ fn main() {
 
     config.db_file = db_file.clone();
     env::set_var("DATABASE_URL", db_file);
-    let conn = jotlog_importer::establish_connection();
+    let conn = jotlog::establish_connection();
 
     let jots: Vec<RawJot> = parse_lawg(lawg);
     for jot in jots.iter() {
-        jotlog_importer::insert_jot(&conn, jot);
+        jotlog::insert_jot(&conn, jot);
     }
 }
 

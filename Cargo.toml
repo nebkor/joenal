@@ -5,17 +5,17 @@ authors = ["Joe Ardent <code@ardent.nebcorp.com>"]
 edition = "2018"
 
 [dependencies]
-tui = "0.3"
-time = "0.1.40"
 chrono = "0.4"
-sublime_fuzzy = "*"
-regex = "1"
 clap = "2"
-lazy_static = "*"
-diesel = { version = "1", features = ["sqlite"] }
-uuid = { version = "*", default-features = false, features = ["v5", "v4"] }
 config = { version = "*", default-features = false, features = ["toml"] }
+confy = "*"
+diesel_migrations = "*"
+diesel = { version = "1", features = ["sqlite"] }
+lazy_static = "*"
 mime = "0.3.13"
-
-[dev-dependencies]
-dotenv = "*"
+regex = "1"
+serde = { version = "1", features = ["derive"] }
+sublime_fuzzy = "*"
+time = "0.1.40"
+tui = "0.3"
+uuid = { version = "*", default-features = false, features = ["v5", "v4"] }
