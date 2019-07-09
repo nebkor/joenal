@@ -19,13 +19,13 @@ pub use db::*;
 pub use util::*;
 
 const DSTRING: &str = "%Y-%m-%d %H:%M:%S";
-const HOUR: i32 = 3600;
+pub const HOUR: i32 = 3600;
 
 #[derive(Debug, PartialEq)]
 pub struct RawJot {
-    content: String,
-    creation_date: DateTime<FixedOffset>,
-    tags: Vec<String>,
+    pub content: String,
+    pub creation_date: DateTime<Utc>,
+    pub tags: Vec<String>,
 }
 
 pub fn insert_jot(conn: &SqliteConnection, jot: &RawJot) {
@@ -124,14 +124,14 @@ pub fn parse_lawg(log: String) -> Vec<RawJot> {
 
     let mut jots: Vec<RawJot> = Vec::new();
     let mut content = String::new();
-    let mut creation_date: DateTime<FixedOffset> = PTZ.ymd(1973, 7, 13).and_hms(0, 0, 0);
+    let mut creation_date: DateTime<Utc> = Utc.ymd(1973, 7, 13).and_hms(0, 0, 0);
     let mut tags = vec![];
 
     for line in log.lines() {
         if START == line {
             continue;
         } else if DATE.captures(line).is_some() {
-            creation_date = parse_date(line, *PTZ);
+            creation_date = parse_date(line);
         } else if let Some(tagline) = TAGS.captures(line) {
             tags = parse_tags(&tagline[1]);
         } else if END == line {
@@ -151,7 +151,7 @@ pub fn parse_lawg(log: String) -> Vec<RawJot> {
     jots
 }
 
-fn parse_tags(tagline: &str) -> Vec<String> {
+pub fn parse_tags(tagline: &str) -> Vec<String> {
     let tags: BTreeSet<String> = tagline
         .split(',')
         .map(|t| t.trim().to_owned())
@@ -162,6 +162,6 @@ fn parse_tags(tagline: &str) -> Vec<String> {
     tags.into_iter().collect()
 }
 
-fn parse_date(dstring: &str, tz: FixedOffset) -> DateTime<FixedOffset> {
-    tz.datetime_from_str(dstring, DSTRING).unwrap()
+fn parse_date(dstring: &str) -> DateTime<Utc> {
+    Utc.datetime_from_str(dstring, DSTRING).unwrap()
 }
