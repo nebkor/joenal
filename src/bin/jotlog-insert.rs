@@ -30,7 +30,6 @@ fn main() {
 
 fn get_args() -> ArgMatches<'static> {
     App::new("Jotlog Insert")
-        .version("1")
         .about("Create and insert an entry into the jotlog database.")
         .arg(
             Arg::with_name("HEADLESS")

@@ -1,0 +1,3 @@
+#!/bin/bash
+
+$HOME/bin/_jotlog-insert -t "interactive" -t "host:$(hostname)" "$@" -t "pwd:$(/bin/pwd)"
