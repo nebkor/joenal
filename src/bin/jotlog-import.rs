@@ -26,6 +26,8 @@ fn main() {
     env::set_var("DATABASE_URL", db_file);
     let conn = jotlog::establish_connection();
 
+    diesel_migrations::run_pending_migrations(&conn).expect("couldn't run migration");
+
     let jots: Vec<RawJot> = parse_lawg(lawg);
     for jot in jots.iter() {
         jotlog::insert_jot(&conn, jot);
