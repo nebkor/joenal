@@ -63,51 +63,50 @@ pub fn insert_jot(conn: &SqliteConnection, jot: &RawJot) {
         dup_id,
     );
 
-    diesel::insert_into(schema::jots::table)
-        .values(&new_jot)
-        .execute(&*conn)
-        .unwrap_or_else(|_| panic!("couldn't insert {} into jots table.", &new_jot));
+    let _ = conn.transaction::<_, diesel::result::Error, _>(|| {
+        diesel::insert_into(schema::jots::table)
+            .values(&new_jot)
+            .execute(&*conn)?;
 
-    for tag in jot.tags.iter() {
-        let id = mk_tag_id(tag);
-        let old_score = match schema::tags::table.find(&id).first::<models::Tag>(&*conn) {
-            Ok(t) => t.get_score(),
-            _ => 0,
-        };
+        for tag in jot.tags.iter() {
+            let id = mk_tag_id(tag);
+            let old_score = match schema::tags::table.find(&id).first::<models::Tag>(&*conn) {
+                Ok(t) => t.get_score(),
+                _ => 0,
+            };
 
-        let new_score = old_score + 1;
+            let new_score = old_score + 1;
 
-        let new_tag = models::Tag::new(
-            tag.clone(),
-            id.clone(),
-            dev_id.clone(),
-            Some(creation_date.clone()),
-            new_score,
-        );
+            let new_tag = models::Tag::new(
+                tag.clone(),
+                id.clone(),
+                dev_id.clone(),
+                Some(creation_date.clone()),
+                new_score,
+            );
 
-        if old_score == 0 {
-            diesel::insert_into(schema::tags::table)
-                .values(&new_tag)
-                .execute(&*conn)
-                .unwrap();
-        } else {
-            diesel::update(schema::tags::table.filter(schema::tags::tag_id.eq(&id)))
-                .set(schema::tags::score.eq(new_score))
-                .execute(&*conn)
-                .unwrap();
+            if old_score == 0 {
+                diesel::insert_into(schema::tags::table)
+                    .values(&new_tag)
+                    .execute(&*conn)?;
+            } else {
+                diesel::update(schema::tags::table.filter(schema::tags::tag_id.eq(&id)))
+                    .set(schema::tags::score.eq(new_score))
+                    .execute(&*conn)?;
+            }
+
+            // now the mapping
+            let mapping_id = mk_mapping_id(&jot_id, &id);
+
+            let mapping =
+                models::Mapping::new(mapping_id, id, jot_id.clone(), Some(creation_date.clone()));
+
+            diesel::insert_into(schema::tag_map::table)
+                .values(&mapping)
+                .execute(&*conn)?;
         }
-
-        // now the mapping
-        let mapping_id = mk_mapping_id(&jot_id, &id);
-
-        let mapping =
-            models::Mapping::new(mapping_id, id, jot_id.clone(), Some(creation_date.clone()));
-
-        diesel::insert_into(schema::tag_map::table)
-            .values(&mapping)
-            .execute(&*conn)
-            .expect("couldn't insert mapping");
-    }
+        Ok(())
+    });
 }
 
 pub fn parse_lawg(log: String) -> Vec<RawJot> {
