@@ -33,7 +33,7 @@ pub fn insert_jot(conn: &SqliteConnection, jot: &RawJot) {
         static ref UTF_8_MIME: String = TEXT_PLAIN_UTF_8.to_string();
     }
 
-    let mut jot_id = mk_jot_id(&jot.content.as_bytes());
+    let mut jot_id = mk_jot_id(&jot);
     let dev_id = get_device_id();
     let creation_date = jot.creation_date.to_rfc3339();
 

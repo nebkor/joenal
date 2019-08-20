@@ -1,6 +1,7 @@
 use super::Uuid;
 use confy;
 
+use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
 use std::path::Path;
@@ -53,9 +54,14 @@ pub fn mk_tag_id(tag: &str) -> Vec<u8> {
     fmt_uuid(mk_jot_ns_uuid(tag.as_bytes()))
 }
 
-pub fn mk_jot_id(content: &[u8]) -> Vec<u8> {
+pub fn mk_jot_id(jot: &crate::RawJot) -> Vec<u8> {
     let jotlog_root = get_jotlog_root();
-    let jot_id = Uuid::new_v5(&jotlog_root, content);
+    let content = [
+        jot.content.as_bytes(),
+        jot.creation_date.to_rfc3339().as_bytes(),
+    ]
+    .concat();
+    let jot_id = Uuid::new_v5(&jotlog_root, &content);
     fmt_uuid(jot_id)
 }
 
