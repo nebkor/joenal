@@ -77,6 +77,7 @@ fn get_tags(args: &ArgMatches<'_>) -> Vec<String> {
         let mut cli_tags = cli_tags
             .map(|t| t.trim().to_owned())
             .filter(|t| !t.is_empty())
+            .map(|t| t.to_lowercase())
             .collect::<Vec<_>>();
         tags.append(&mut cli_tags);
     }
