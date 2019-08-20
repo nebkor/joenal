@@ -68,6 +68,9 @@ pub fn insert_jot(conn: &SqliteConnection, jot: &RawJot) {
             .values(&new_jot)
             .execute(&*conn)?;
 
+        let mut new_tags: Vec<models::Tag> = Vec::with_capacity(jot.tags.len());
+        let mut mappings: Vec<models::Mapping> = Vec::with_capacity(jot.tags.len());
+
         for tag in jot.tags.iter() {
             let id = mk_tag_id(tag);
             let old_score = match schema::tags::table.find(&id).first::<models::Tag>(&*conn) {
@@ -86,10 +89,9 @@ pub fn insert_jot(conn: &SqliteConnection, jot: &RawJot) {
             );
 
             if old_score == 0 {
-                diesel::insert_into(schema::tags::table)
-                    .values(&new_tag)
-                    .execute(&*conn)?;
+                new_tags.push(new_tag);
             } else {
+                // TODO: figure out bulk update.
                 diesel::update(schema::tags::table.filter(schema::tags::tag_id.eq(&id)))
                     .set(schema::tags::score.eq(new_score))
                     .execute(&*conn)?;
@@ -100,11 +102,16 @@ pub fn insert_jot(conn: &SqliteConnection, jot: &RawJot) {
 
             let mapping =
                 models::Mapping::new(mapping_id, id, jot_id.clone(), Some(creation_date.clone()));
-
-            diesel::insert_into(schema::tag_map::table)
-                .values(&mapping)
-                .execute(&*conn)?;
+            mappings.push(mapping);
         }
+        diesel::insert_into(schema::tags::table)
+            .values(&new_tags)
+            .execute(&*conn)?;
+
+        diesel::insert_into(schema::tag_map::table)
+            .values(&mappings)
+            .execute(&*conn)?;
+
         Ok(())
     });
 }
