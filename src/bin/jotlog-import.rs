@@ -3,13 +3,18 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::path::{Path, PathBuf};
 
+use chrono::prelude::*;
 use clap::{App, Arg, ArgMatches};
+use lazy_static::lazy_static;
+use regex::Regex;
 
-use jotlog::RawJot;
-use jotlog::{get_config, parse_lawg};
+use jotlog::{get_config, parse_tags, RawJot};
 
 const DEFAULT_LAWG: &str = "~/.kaptanslawg";
 const DEFAULT_DB: &str = "~/.jotlog.sqlite";
+
+const DSTRING: &str = "%Y-%m-%d %H:%M:%S";
+pub const HOUR: i32 = 3600;
 
 fn main() {
     let args = get_args();
@@ -77,4 +82,49 @@ fn get_args() -> ArgMatches<'static> {
                 .default_value(DEFAULT_DB),
         )
         .get_matches()
+}
+
+fn parse_lawg(log: String) -> Vec<RawJot> {
+    lazy_static! {
+        static ref TAGS: Regex = Regex::new(r"^%%TAGS%% (.*)$").unwrap();
+        static ref PTZ: FixedOffset = FixedOffset::west(7 * HOUR);
+        static ref DATE: Regex =
+            Regex::new(r"^([0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2})").unwrap();
+    }
+    #[allow(non_snake_case)]
+    let START = "%%START%%";
+    #[allow(non_snake_case)]
+    let END = "%%END%%";
+
+    let mut jots: Vec<RawJot> = Vec::new();
+    let mut content = String::new();
+    let mut creation_date: DateTime<Utc> = Utc.ymd(1973, 7, 13).and_hms(0, 0, 0);
+    let mut tags = vec![];
+
+    for line in log.lines() {
+        if START == line {
+            continue;
+        } else if DATE.captures(line).is_some() {
+            creation_date = parse_date(line);
+        } else if let Some(tagline) = TAGS.captures(line) {
+            tags = parse_tags(&tagline[1]);
+        } else if END == line {
+            let jot = RawJot {
+                content: content.trim().to_owned().clone(),
+                creation_date,
+                tags: tags.clone(),
+            };
+            jots.push(jot);
+            tags.clear();
+            content.clear();
+        } else {
+            content = [&content, line].join("\n");
+        }
+    }
+
+    jots
+}
+
+fn parse_date(dstring: &str) -> DateTime<Utc> {
+    Utc.datetime_from_str(dstring, DSTRING).unwrap()
 }

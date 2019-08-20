@@ -5,7 +5,6 @@ use chrono::prelude::*;
 
 use lazy_static::lazy_static;
 use mime::TEXT_PLAIN_UTF_8;
-use regex::Regex;
 use uuid::Uuid;
 
 use std::collections::BTreeSet;
@@ -17,9 +16,6 @@ mod util;
 
 pub use db::*;
 pub use util::*;
-
-const DSTRING: &str = "%Y-%m-%d %H:%M:%S";
-pub const HOUR: i32 = 3600;
 
 #[derive(Debug, PartialEq)]
 pub struct RawJot {
@@ -116,47 +112,6 @@ pub fn insert_jot(conn: &SqliteConnection, jot: &RawJot) {
     });
 }
 
-pub fn parse_lawg(log: String) -> Vec<RawJot> {
-    lazy_static! {
-        static ref TAGS: Regex = Regex::new(r"^%%TAGS%% (.*)$").unwrap();
-        static ref PTZ: FixedOffset = FixedOffset::west(7 * HOUR);
-        static ref DATE: Regex =
-            Regex::new(r"^([0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2})").unwrap();
-    }
-    #[allow(non_snake_case)]
-    let START = "%%START%%";
-    #[allow(non_snake_case)]
-    let END = "%%END%%";
-
-    let mut jots: Vec<RawJot> = Vec::new();
-    let mut content = String::new();
-    let mut creation_date: DateTime<Utc> = Utc.ymd(1973, 7, 13).and_hms(0, 0, 0);
-    let mut tags = vec![];
-
-    for line in log.lines() {
-        if START == line {
-            continue;
-        } else if DATE.captures(line).is_some() {
-            creation_date = parse_date(line);
-        } else if let Some(tagline) = TAGS.captures(line) {
-            tags = parse_tags(&tagline[1]);
-        } else if END == line {
-            let jot = RawJot {
-                content: content.trim().to_owned().clone(),
-                creation_date,
-                tags: tags.clone(),
-            };
-            jots.push(jot);
-            tags.clear();
-            content.clear();
-        } else {
-            content = [&content, line].join("\n");
-        }
-    }
-
-    jots
-}
-
 pub fn parse_tags(tagline: &str) -> Vec<String> {
     let tags: BTreeSet<String> = tagline
         .split(',')
@@ -166,8 +121,4 @@ pub fn parse_tags(tagline: &str) -> Vec<String> {
         .collect();
 
     tags.into_iter().collect()
-}
-
-fn parse_date(dstring: &str) -> DateTime<Utc> {
-    Utc.datetime_from_str(dstring, DSTRING).unwrap()
 }
