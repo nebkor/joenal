@@ -17,3 +17,4 @@ regex = "1"
 serde = { version = "1", features = ["derive"] }
 time = "0.2"
 uuid = { version = "*", default-features = false, features = ["v5", "v4"] }
+iced = { version = "0.3", features = ["debug"] }
