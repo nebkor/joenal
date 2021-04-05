@@ -12,7 +12,7 @@ diesel_migrations = "1"
 diesel = { version = "1", features = ["sqlite"] }
 lazy_static = "1"
 mime = "0.3"
-rand = "0.7"
+rand = "0.8"
 regex = "1"
 serde = { version = "1", features = ["derive"] }
 time = "0.2"
