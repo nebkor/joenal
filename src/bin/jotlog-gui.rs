@@ -1,657 +1,251 @@
-use iced::{
-    button, scrollable, text_input, Align, Application, Button, Checkbox,
-    Clipboard, Column, Command, Container, Element, Font, HorizontalAlignment,
-    Length, Row, Scrollable, Settings, Text, TextInput,
+// Copyright 2020 The Druid Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+//! An example of live markdown preview
+
+use pulldown_cmark::{Event as ParseEvent, Parser, Tag};
+
+use druid::text::{AttributesAdder, RichText, RichTextBuilder};
+use druid::widget::prelude::*;
+use druid::widget::{Controller, LineBreaking, RawLabel, Scroll, Split, TextBox};
+use druid::{
+    AppDelegate, AppLauncher, Color, Command, Data, DelegateCtx, FontFamily, FontStyle, FontWeight,
+    Handled, Lens, LocalizedString, Menu, Selector, Target, Widget, WidgetExt, WindowDesc,
+    WindowId,
 };
-use serde::{Deserialize, Serialize};
 
-pub fn main() -> iced::Result {
-    Todos::run(Settings::default())
+const WINDOW_TITLE: LocalizedString<AppState> = LocalizedString::new("Minimal Markdown");
+
+const TEXT: &str = "*Hello* ***world***! This is a `TextBox` where you can \
+		    use limited markdown notation, which is reflected in the \
+		    **styling** of the `Label` on the left.
+
+		    If you're curious about Druid, a good place to ask questions \
+		    and discuss development work is our [Zulip chat instance], \
+		    in the #druid-help and #druid channels, respectively.\n\n\n\
+		    
+		    [Zulip chat instance]: https://xi.zulipchat.com";
+
+const SPACER_SIZE: f64 = 8.0;
+const BLOCKQUOTE_COLOR: Color = Color::grey8(0x88);
+const LINK_COLOR: Color = Color::rgb8(0, 0, 0xEE);
+const OPEN_LINK: Selector<String> = Selector::new("druid-example.open-link");
+
+#[derive(Clone, Data, Lens)]
+struct AppState {
+    raw: String,
+    rendered: RichText,
 }
 
-#[derive(Debug)]
-enum Todos {
-    Loading,
-    Loaded(State),
-}
+/// A controller that rebuilds the preview when edits occur
+struct RichTextRebuilder;
 
-#[derive(Debug, Default)]
-struct State {
-    scroll: scrollable::State,
-    input: text_input::State,
-    input_value: String,
-    filter: Filter,
-    tasks: Vec<Task>,
-    controls: Controls,
-    dirty: bool,
-    saving: bool,
-}
-
-#[derive(Debug, Clone)]
-enum Message {
-    Loaded(Result<SavedState, LoadError>),
-    Saved(Result<(), SaveError>),
-    InputChanged(String),
-    CreateTask,
-    FilterChanged(Filter),
-    TaskMessage(usize, TaskMessage),
-}
-
-impl Application for Todos {
-    type Executor = iced::executor::Default;
-    type Message = Message;
-    type Flags = ();
-
-    fn new(_flags: ()) -> (Todos, Command<Message>) {
-        (
-            Todos::Loading,
-            Command::perform(SavedState::load(), Message::Loaded),
-        )
-    }
-
-    fn title(&self) -> String {
-        let dirty = match self {
-            Todos::Loading => false,
-            Todos::Loaded(state) => state.dirty,
-        };
-
-        format!("Todos{} - Iced", if dirty { "*" } else { "" })
-    }
-
-    fn update(
+impl<W: Widget<AppState>> Controller<AppState, W> for RichTextRebuilder {
+    fn event(
         &mut self,
-        message: Message,
-        _clipboard: &mut Clipboard,
-    ) -> Command<Message> {
-        match self {
-            Todos::Loading => {
-                match message {
-                    Message::Loaded(Ok(state)) => {
-                        *self = Todos::Loaded(State {
-                            input_value: state.input_value,
-                            filter: state.filter,
-                            tasks: state.tasks,
-                            ..State::default()
-                        });
-                    }
-                    Message::Loaded(Err(_)) => {
-                        *self = Todos::Loaded(State::default());
-                    }
-                    _ => {}
-                }
-
-                Command::none()
-            }
-            Todos::Loaded(state) => {
-                let mut saved = false;
-
-                match message {
-                    Message::InputChanged(value) => {
-                        state.input_value = value;
-                    }
-                    Message::CreateTask => {
-                        if !state.input_value.is_empty() {
-                            state
-                                .tasks
-                                .push(Task::new(state.input_value.clone()));
-                            state.input_value.clear();
-                        }
-                    }
-                    Message::FilterChanged(filter) => {
-                        state.filter = filter;
-                    }
-                    Message::TaskMessage(i, TaskMessage::Delete) => {
-                        state.tasks.remove(i);
-                    }
-                    Message::TaskMessage(i, task_message) => {
-                        if let Some(task) = state.tasks.get_mut(i) {
-                            task.update(task_message);
-                        }
-                    }
-                    Message::Saved(_) => {
-                        state.saving = false;
-                        saved = true;
-                    }
-                    _ => {}
-                }
-
-                if !saved {
-                    state.dirty = true;
-                }
-
-                if state.dirty && !state.saving {
-                    state.dirty = false;
-                    state.saving = true;
-
-                    Command::perform(
-                        SavedState {
-                            input_value: state.input_value.clone(),
-                            filter: state.filter,
-                            tasks: state.tasks.clone(),
-                        }
-                        .save(),
-                        Message::Saved,
-                    )
-                } else {
-                    Command::none()
-                }
-            }
-        }
-    }
-
-    fn view(&mut self) -> Element<Message> {
-        match self {
-            Todos::Loading => loading_message(),
-            Todos::Loaded(State {
-                scroll,
-                input,
-                input_value,
-                filter,
-                tasks,
-                controls,
-                ..
-            }) => {
-                let title = Text::new("todos")
-                    .width(Length::Fill)
-                    .size(100)
-                    .color([0.5, 0.5, 0.5])
-                    .horizontal_alignment(HorizontalAlignment::Center);
-
-                let input = TextInput::new(
-                    input,
-                    "What needs to be done?",
-                    input_value,
-                    Message::InputChanged,
-                )
-                .padding(15)
-                .size(30)
-                .on_submit(Message::CreateTask);
-
-                let controls = controls.view(&tasks, *filter);
-                let filtered_tasks =
-                    tasks.iter().filter(|task| filter.matches(task));
-
-                let tasks: Element<_> = if filtered_tasks.count() > 0 {
-                    tasks
-                        .iter_mut()
-                        .enumerate()
-                        .filter(|(_, task)| filter.matches(task))
-                        .fold(Column::new().spacing(20), |column, (i, task)| {
-                            column.push(task.view().map(move |message| {
-                                Message::TaskMessage(i, message)
-                            }))
-                        })
-                        .into()
-                } else {
-                    empty_message(match filter {
-                        Filter::All => "You have not created a task yet...",
-                        Filter::Active => "All your tasks are done! :D",
-                        Filter::Completed => {
-                            "You have not completed a task yet..."
-                        }
-                    })
-                };
-
-                let content = Column::new()
-                    .max_width(800)
-                    .spacing(20)
-                    .push(title)
-                    .push(input)
-                    .push(controls)
-                    .push(tasks);
-
-                Scrollable::new(scroll)
-                    .padding(40)
-                    .push(
-                        Container::new(content).width(Length::Fill).center_x(),
-                    )
-                    .into()
-            }
+        child: &mut W,
+        ctx: &mut EventCtx,
+        event: &Event,
+        data: &mut AppState,
+        env: &Env,
+    ) {
+        let pre_data = data.raw.to_owned();
+        child.event(ctx, event, data, env);
+        if !data.raw.same(&pre_data) {
+            data.rendered = rebuild_rendered_text(&data.raw);
         }
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct Task {
-    description: String,
-    completed: bool,
+struct Delegate;
 
-    #[serde(skip)]
-    state: TaskState,
-}
-
-#[derive(Debug, Clone)]
-pub enum TaskState {
-    Idle {
-        edit_button: button::State,
-    },
-    Editing {
-        text_input: text_input::State,
-        delete_button: button::State,
-    },
-}
-
-impl Default for TaskState {
-    fn default() -> Self {
-        TaskState::Idle {
-            edit_button: button::State::new(),
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub enum TaskMessage {
-    Completed(bool),
-    Edit,
-    DescriptionEdited(String),
-    FinishEdition,
-    Delete,
-}
-
-impl Task {
-    fn new(description: String) -> Self {
-        Task {
-            description,
-            completed: false,
-            state: TaskState::Idle {
-                edit_button: button::State::new(),
-            },
-        }
-    }
-
-    fn update(&mut self, message: TaskMessage) {
-        match message {
-            TaskMessage::Completed(completed) => {
-                self.completed = completed;
-            }
-            TaskMessage::Edit => {
-                self.state = TaskState::Editing {
-                    text_input: text_input::State::focused(),
-                    delete_button: button::State::new(),
-                };
-            }
-            TaskMessage::DescriptionEdited(new_description) => {
-                self.description = new_description;
-            }
-            TaskMessage::FinishEdition => {
-                if !self.description.is_empty() {
-                    self.state = TaskState::Idle {
-                        edit_button: button::State::new(),
-                    }
-                }
-            }
-            TaskMessage::Delete => {}
-        }
-    }
-
-    fn view(&mut self) -> Element<TaskMessage> {
-        match &mut self.state {
-            TaskState::Idle { edit_button } => {
-                let checkbox = Checkbox::new(
-                    self.completed,
-                    &self.description,
-                    TaskMessage::Completed,
-                )
-                .width(Length::Fill);
-
-                Row::new()
-                    .spacing(20)
-                    .align_items(Align::Center)
-                    .push(checkbox)
-                    .push(
-                        Button::new(edit_button, edit_icon())
-                            .on_press(TaskMessage::Edit)
-                            .padding(10)
-                            .style(style::Button::Icon),
-                    )
-                    .into()
-            }
-            TaskState::Editing {
-                text_input,
-                delete_button,
-            } => {
-                let text_input = TextInput::new(
-                    text_input,
-                    "Describe your task...",
-                    &self.description,
-                    TaskMessage::DescriptionEdited,
-                )
-                .on_submit(TaskMessage::FinishEdition)
-                .padding(10);
-
-                Row::new()
-                    .spacing(20)
-                    .align_items(Align::Center)
-                    .push(text_input)
-                    .push(
-                        Button::new(
-                            delete_button,
-                            Row::new()
-                                .spacing(10)
-                                .push(delete_icon())
-                                .push(Text::new("Delete")),
-                        )
-                        .on_press(TaskMessage::Delete)
-                        .padding(10)
-                        .style(style::Button::Destructive),
-                    )
-                    .into()
-            }
-        }
-    }
-}
-
-#[derive(Debug, Default, Clone)]
-pub struct Controls {
-    all_button: button::State,
-    active_button: button::State,
-    completed_button: button::State,
-}
-
-impl Controls {
-    fn view(&mut self, tasks: &[Task], current_filter: Filter) -> Row<Message> {
-        let Controls {
-            all_button,
-            active_button,
-            completed_button,
-        } = self;
-
-        let tasks_left = tasks.iter().filter(|task| !task.completed).count();
-
-        let filter_button = |state, label, filter, current_filter| {
-            let label = Text::new(label).size(16);
-            let button =
-                Button::new(state, label).style(style::Button::Filter {
-                    selected: filter == current_filter,
-                });
-
-            button.on_press(Message::FilterChanged(filter)).padding(8)
-        };
-
-        Row::new()
-            .spacing(20)
-            .align_items(Align::Center)
-            .push(
-                Text::new(&format!(
-                    "{} {} left",
-                    tasks_left,
-                    if tasks_left == 1 { "task" } else { "tasks" }
-                ))
-                .width(Length::Fill)
-                .size(16),
-            )
-            .push(
-                Row::new()
-                    .width(Length::Shrink)
-                    .spacing(10)
-                    .push(filter_button(
-                        all_button,
-                        "All",
-                        Filter::All,
-                        current_filter,
-                    ))
-                    .push(filter_button(
-                        active_button,
-                        "Active",
-                        Filter::Active,
-                        current_filter,
-                    ))
-                    .push(filter_button(
-                        completed_button,
-                        "Completed",
-                        Filter::Completed,
-                        current_filter,
-                    )),
-            )
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum Filter {
-    All,
-    Active,
-    Completed,
-}
-
-impl Default for Filter {
-    fn default() -> Self {
-        Filter::All
-    }
-}
-
-impl Filter {
-    fn matches(&self, task: &Task) -> bool {
-        match self {
-            Filter::All => true,
-            Filter::Active => !task.completed,
-            Filter::Completed => task.completed,
-        }
-    }
-}
-
-fn loading_message<'a>() -> Element<'a, Message> {
-    Container::new(
-        Text::new("Loading...")
-            .horizontal_alignment(HorizontalAlignment::Center)
-            .size(50),
-    )
-    .width(Length::Fill)
-    .height(Length::Fill)
-    .center_y()
-    .into()
-}
-
-fn empty_message<'a>(message: &str) -> Element<'a, Message> {
-    Container::new(
-        Text::new(message)
-            .width(Length::Fill)
-            .size(25)
-            .horizontal_alignment(HorizontalAlignment::Center)
-            .color([0.7, 0.7, 0.7]),
-    )
-    .width(Length::Fill)
-    .height(Length::Units(200))
-    .center_y()
-    .into()
-}
-
-// Fonts
-const ICONS: Font = Font::External {
-    name: "Icons",
-    bytes: include_bytes!("../fonts/icons.ttf"),
-};
-
-fn icon(unicode: char) -> Text {
-    Text::new(&unicode.to_string())
-        .font(ICONS)
-        .width(Length::Units(20))
-        .horizontal_alignment(HorizontalAlignment::Center)
-        .size(20)
-}
-
-fn edit_icon() -> Text {
-    icon('\u{F303}')
-}
-
-fn delete_icon() -> Text {
-    icon('\u{F1F8}')
-}
-
-// Persistence
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct SavedState {
-    input_value: String,
-    filter: Filter,
-    tasks: Vec<Task>,
-}
-
-#[derive(Debug, Clone)]
-enum LoadError {
-    FileError,
-    FormatError,
-}
-
-#[derive(Debug, Clone)]
-enum SaveError {
-    FileError,
-    WriteError,
-    FormatError,
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-impl SavedState {
-    fn path() -> std::path::PathBuf {
-        let mut path = if let Some(project_dirs) =
-            directories_next::ProjectDirs::from("rs", "Iced", "Todos")
-        {
-            project_dirs.data_dir().into()
+impl<T: Data> AppDelegate<T> for Delegate {
+    fn command(
+        &mut self,
+        _ctx: &mut DelegateCtx,
+        _target: Target,
+        cmd: &Command,
+        _data: &mut T,
+        _env: &Env,
+    ) -> Handled {
+        if let Some(url) = cmd.get(OPEN_LINK) {
+            #[cfg(not(target_arch = "wasm32"))]
+            open::that_in_background(url);
+            #[cfg(target_arch = "wasm32")]
+            tracing::warn!("opening link({}) not supported on web yet.", url);
+            Handled::Yes
         } else {
-            std::env::current_dir().unwrap_or(std::path::PathBuf::new())
-        };
-
-        path.push("todos.json");
-
-        path
-    }
-
-    async fn load() -> Result<SavedState, LoadError> {
-        use async_std::prelude::*;
-
-        let mut contents = String::new();
-
-        let mut file = async_std::fs::File::open(Self::path())
-            .await
-            .map_err(|_| LoadError::FileError)?;
-
-        file.read_to_string(&mut contents)
-            .await
-            .map_err(|_| LoadError::FileError)?;
-
-        serde_json::from_str(&contents).map_err(|_| LoadError::FormatError)
-    }
-
-    async fn save(self) -> Result<(), SaveError> {
-        use async_std::prelude::*;
-
-        let json = serde_json::to_string_pretty(&self)
-            .map_err(|_| SaveError::FormatError)?;
-
-        let path = Self::path();
-
-        if let Some(dir) = path.parent() {
-            async_std::fs::create_dir_all(dir)
-                .await
-                .map_err(|_| SaveError::FileError)?;
+            Handled::No
         }
-
-        {
-            let mut file = async_std::fs::File::create(path)
-                .await
-                .map_err(|_| SaveError::FileError)?;
-
-            file.write_all(json.as_bytes())
-                .await
-                .map_err(|_| SaveError::WriteError)?;
-        }
-
-        // This is a simple way to save at most once every couple seconds
-        async_std::task::sleep(std::time::Duration::from_secs(2)).await;
-
-        Ok(())
     }
 }
+pub fn main() {
+    // describe the main window
+    let main_window = WindowDesc::new(build_root_widget())
+        .title(WINDOW_TITLE)
+        .menu(make_menu)
+        .window_size((700.0, 600.0));
 
-#[cfg(target_arch = "wasm32")]
-impl SavedState {
-    fn storage() -> Option<web_sys::Storage> {
-        let window = web_sys::window()?;
+    // create the initial app state
+    let initial_state = AppState {
+        raw: TEXT.to_owned(),
+        rendered: rebuild_rendered_text(TEXT),
+    };
 
-        window.local_storage().ok()?
-    }
-
-    async fn load() -> Result<SavedState, LoadError> {
-        let storage = Self::storage().ok_or(LoadError::FileError)?;
-
-        let contents = storage
-            .get_item("state")
-            .map_err(|_| LoadError::FileError)?
-            .ok_or(LoadError::FileError)?;
-
-        serde_json::from_str(&contents).map_err(|_| LoadError::FormatError)
-    }
-
-    async fn save(self) -> Result<(), SaveError> {
-        let storage = Self::storage().ok_or(SaveError::FileError)?;
-
-        let json = serde_json::to_string_pretty(&self)
-            .map_err(|_| SaveError::FormatError)?;
-
-        storage
-            .set_item("state", &json)
-            .map_err(|_| SaveError::WriteError)?;
-
-        let _ = wasm_timer::Delay::new(std::time::Duration::from_secs(2)).await;
-
-        Ok(())
-    }
+    // start the application
+    AppLauncher::with_window(main_window)
+        .log_to_console()
+        .delegate(Delegate)
+        .launch(initial_state)
+        .expect("Failed to launch application");
 }
 
-mod style {
-    use iced::{button, Background, Color, Vector};
+fn build_root_widget() -> impl Widget<AppState> {
+    let label = Scroll::new(
+        RawLabel::new()
+            .with_text_color(Color::BLACK)
+            .with_line_break_mode(LineBreaking::WordWrap)
+            .lens(AppState::rendered)
+            .expand_width()
+            .padding((SPACER_SIZE * 4.0, SPACER_SIZE)),
+    )
+    .vertical()
+    .background(Color::grey8(222))
+    .expand();
 
-    pub enum Button {
-        Filter { selected: bool },
-        Icon,
-        Destructive,
-    }
+    let textbox = TextBox::multiline()
+        .lens(AppState::raw)
+        .controller(RichTextRebuilder)
+        .expand()
+        .padding(5.0);
 
-    impl button::StyleSheet for Button {
-        fn active(&self) -> button::Style {
-            match self {
-                Button::Filter { selected } => {
-                    if *selected {
-                        button::Style {
-                            background: Some(Background::Color(
-                                Color::from_rgb(0.2, 0.2, 0.7),
-                            )),
-                            border_radius: 10.0,
-                            text_color: Color::WHITE,
-                            ..button::Style::default()
-                        }
-                    } else {
-                        button::Style::default()
-                    }
+    Split::columns(label, textbox)
+}
+
+/// Parse a markdown string and generate a `RichText` object with
+/// the appropriate attributes.
+fn rebuild_rendered_text(text: &str) -> RichText {
+    let mut current_pos = 0;
+    let mut builder = RichTextBuilder::new();
+    let mut tag_stack = Vec::new();
+
+    let parser = Parser::new(text);
+    for event in parser {
+        match event {
+            ParseEvent::Start(tag) => {
+                tag_stack.push((current_pos, tag));
+            }
+            ParseEvent::Text(txt) => {
+                builder.push(&txt);
+                current_pos += txt.len();
+            }
+            ParseEvent::End(end_tag) => {
+                let (start_off, tag) = tag_stack
+                    .pop()
+                    .expect("parser does not return unbalanced tags");
+                assert_eq!(end_tag, tag, "mismatched tags?");
+                add_attribute_for_tag(
+                    &tag,
+                    builder.add_attributes_for_range(start_off..current_pos),
+                );
+                if add_newline_after_tag(&tag) {
+                    builder.push("\n\n");
+                    current_pos += 2;
                 }
-                Button::Icon => button::Style {
-                    text_color: Color::from_rgb(0.5, 0.5, 0.5),
-                    ..button::Style::default()
-                },
-                Button::Destructive => button::Style {
-                    background: Some(Background::Color(Color::from_rgb(
-                        0.8, 0.2, 0.2,
-                    ))),
-                    border_radius: 5.0,
-                    text_color: Color::WHITE,
-                    shadow_offset: Vector::new(1.0, 1.0),
-                    ..button::Style::default()
-                },
             }
-        }
-
-        fn hovered(&self) -> button::Style {
-            let active = self.active();
-
-            button::Style {
-                text_color: match self {
-                    Button::Icon => Color::from_rgb(0.2, 0.2, 0.7),
-                    Button::Filter { selected } if !selected => {
-                        Color::from_rgb(0.2, 0.2, 0.7)
-                    }
-                    _ => active.text_color,
-                },
-                shadow_offset: active.shadow_offset + Vector::new(0.0, 1.0),
-                ..active
+            ParseEvent::Code(txt) => {
+                builder.push(&txt).font_family(FontFamily::MONOSPACE);
+                current_pos += txt.len();
             }
+            ParseEvent::Html(txt) => {
+                builder
+                    .push(&txt)
+                    .font_family(FontFamily::MONOSPACE)
+                    .text_color(BLOCKQUOTE_COLOR);
+                current_pos += txt.len();
+            }
+            ParseEvent::HardBreak => {
+                builder.push("\n\n");
+                current_pos += 2;
+            }
+            _ => (),
         }
     }
+    builder.build()
+}
+
+fn add_newline_after_tag(tag: &Tag) -> bool {
+    !matches!(
+        tag,
+        Tag::Emphasis | Tag::Strong | Tag::Strikethrough | Tag::Link(..)
+    )
+}
+
+fn add_attribute_for_tag(tag: &Tag, mut attrs: AttributesAdder) {
+    match tag {
+        Tag::Heading(lvl) => {
+            let font_size = match lvl {
+                1 => 38.,
+                2 => 32.0,
+                3 => 26.0,
+                4 => 20.0,
+                5 => 16.0,
+                _ => 12.0,
+            };
+            attrs.size(font_size).weight(FontWeight::BOLD);
+        }
+        Tag::BlockQuote => {
+            attrs.style(FontStyle::Italic).text_color(BLOCKQUOTE_COLOR);
+        }
+        Tag::CodeBlock(_) => {
+            attrs.font_family(FontFamily::MONOSPACE);
+        }
+        Tag::Emphasis => {
+            attrs.style(FontStyle::Italic);
+        }
+        Tag::Strong => {
+            attrs.weight(FontWeight::BOLD);
+        }
+        Tag::Link(_link_ty, target, _title) => {
+            attrs
+                .underline(true)
+                .text_color(LINK_COLOR)
+                .link(OPEN_LINK.with(target.to_string()));
+        }
+        // ignore other tags for now
+        _ => (),
+    }
+}
+
+#[allow(unused_assignments, unused_mut)]
+fn make_menu<T: Data>(_window_id: Option<WindowId>, _app_state: &AppState, _env: &Env) -> Menu<T> {
+    let mut base = Menu::empty();
+    #[cfg(target_os = "macos")]
+    {
+        base = base.entry(druid::platform_menus::mac::application::default())
+    }
+    #[cfg(any(target_os = "windows", target_os = "linux"))]
+    {
+        base = base.entry(druid::platform_menus::win::file::default());
+    }
+    base.entry(
+        Menu::new(LocalizedString::new("common-menu-edit-menu"))
+            .entry(druid::platform_menus::common::undo())
+            .entry(druid::platform_menus::common::redo())
+            .separator()
+            .entry(druid::platform_menus::common::cut().enabled(false))
+            .entry(druid::platform_menus::common::copy())
+            .entry(druid::platform_menus::common::paste()),
+    )
 }
