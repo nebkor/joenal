@@ -47,7 +47,7 @@ impl Display for Jot {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         let date = match self.jot_creation_date {
             Some(ref d) => d.clone(),
-            _ => "No date".to_owned(),
+            None => "No date".to_owned(),
         };
 
         write!(

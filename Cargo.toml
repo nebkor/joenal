@@ -3,6 +3,7 @@ name = "jotlog"
 version = "0.1.0"
 authors = ["Joe Ardent <code@ardent.nebcorp.com>"]
 edition = "2018"
+default-run = "jotlog-gui"
 
 [dependencies]
 chrono = "0.4"
@@ -17,4 +18,5 @@ regex = "1"
 serde = { version = "1", features = ["derive"] }
 time = "0.2"
 uuid = { version = "*", default-features = false, features = ["v5", "v4"] }
-iced = { version = "0.3", features = ["debug"] }
+iced = { version = "0.3", features = ["debug", "async-std"] }
+async-std = "1"
