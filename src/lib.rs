@@ -15,6 +15,7 @@ mod schema;
 mod util;
 
 pub use db::*;
+pub use models::*;
 pub use util::*;
 
 #[derive(Debug, PartialEq)]
@@ -110,6 +111,13 @@ pub fn insert_jot(conn: &SqliteConnection, jot: &RawJot) {
 
         Ok(())
     });
+}
+
+pub fn get_jots(conn: &SqliteConnection) -> Vec<Jot> {
+    match schema::jots::table.load::<Jot>(conn) {
+        Ok(jots) => jots,
+        _ => vec![],
+    }
 }
 
 pub fn parse_tags(tagline: &str) -> Vec<String> {

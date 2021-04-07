@@ -34,7 +34,7 @@ const TEXT: &str = "*Hello* ***world***! This is a `TextBox` where you can \
 		    If you're curious about Druid, a good place to ask questions \
 		    and discuss development work is our [Zulip chat instance], \
 		    in the #druid-help and #druid channels, respectively.\n\n\n\
-		    
+
 		    [Zulip chat instance]: https://xi.zulipchat.com";
 
 const SPACER_SIZE: f64 = 8.0;
@@ -90,7 +90,8 @@ impl<T: Data> AppDelegate<T> for Delegate {
         }
     }
 }
-pub fn main() {
+
+fn main() {
     // describe the main window
     let main_window = WindowDesc::new(build_root_widget())
         .title(WINDOW_TITLE)
