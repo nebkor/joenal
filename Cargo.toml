@@ -9,14 +9,12 @@ default-run = "jotlog-gui"
 chrono = "0.4"
 clap = "2"
 confy = "0.4"
-diesel_migrations = "1"
-diesel = { version = "1", features = ["sqlite"] }
+sqlx = { version = "0.5", features = [ "runtime-async-std-native-tls", "sqlite", "chrono", "bigdecimal" ] }
+async-std = { version = "1", features = [ "attributes" ] }
 lazy_static = "1"
 mime = "0.3"
 rand = "0.8"
 regex = "1"
-serde = { version = "1", features = ["derive"] }
-time = "0.2"
 uuid = { version = "*", default-features = false, features = ["v5", "v4"] }
 druid = { version = "*", path = "../druid/druid" }
 druid-shell = { version = "0.7.0", default-features = false, path = "../druid/druid-shell" }
