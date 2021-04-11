@@ -1,10 +1,10 @@
-use super::Uuid;
-use confy;
+use std::path::Path;
 
 use chrono::Utc;
+use confy;
 use serde::{Deserialize, Serialize};
 
-use std::path::Path;
+use super::Uuid;
 
 const NAMESPACE_JOT: &str = "930ccacb-5523-4be7-8045-f033465dae8f"; // v4 UUID used for constructing v5 UUIDs
 

@@ -15,9 +15,11 @@ lazy_static = "1"
 mime = "0.3"
 rand = "0.8"
 regex = "1"
+serde = { version = "1", features = ["derive"] }
 uuid = { version = "*", default-features = false, features = ["v5", "v4"] }
 druid = { version = "*", path = "../druid/druid" }
 druid-shell = { version = "0.7.0", default-features = false, path = "../druid/druid-shell" }
 druid-derive = { version = "0.4.0", path = "../druid/druid-derive" }
 pulldown-cmark = { version = "0.8", default-features = false }
 open = "1.6"
+anyhow = "1"

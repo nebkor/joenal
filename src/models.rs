@@ -1,11 +1,13 @@
-use super::schema::*;
+use std::{
+    cmp::{Eq, PartialEq},
+    fmt::Display,
+};
+
+use sqlx::prelude::*;
+
 use super::Uuid;
 
-use std::cmp::{Eq, PartialEq};
-use std::fmt::Display;
-
-#[derive(Queryable, Insertable, Debug)]
-#[table_name = "jots"]
+#[derive(FromRow, Debug)]
 pub struct Jot {
     jot_id: Vec<u8>,
     jot_creation_date: Option<String>,
@@ -60,8 +62,7 @@ impl Display for Jot {
     }
 }
 
-#[derive(Queryable, Insertable, Debug)]
-#[table_name = "tag_map"]
+#[derive(FromRow, Debug)]
 pub struct Mapping {
     mapping_id: Vec<u8>,
     tag_id: Vec<u8>,
@@ -85,8 +86,7 @@ impl Mapping {
     }
 }
 
-#[derive(Queryable, Insertable, Debug)]
-#[table_name = "tags"]
+#[derive(FromRow, Debug)]
 pub struct Tag {
     tag_id: Vec<u8>,
     tag_creation_date: Option<String>,
