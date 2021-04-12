@@ -4,12 +4,11 @@ use anyhow::Result as AResult;
 use chrono::prelude::*;
 use lazy_static::lazy_static;
 use mime::TEXT_PLAIN_UTF_8;
-use sqlx::{query, query_as, sqlite::SqlitePool, Connection};
+use sqlx::{query, query_as, sqlite::SqlitePool, Connection, Row};
 use uuid::Uuid;
 
 mod db;
 mod models;
-mod schema;
 mod util;
 
 pub use db::*;
@@ -36,25 +35,24 @@ pub async fn insert_jot(pool: &SqlitePool, jot: &RawJot) -> AResult<()> {
 
     let mut dup_id: Option<Vec<u8>> = None;
 
-    let jot_count: AResult<usize> = query(
+    let jot_count: usize = query(
         r#"
-SELECT COUNT(jot_id) FROM jots WHERE jot_id = ?1
+SELECT jot_id FROM jots WHERE jot_id = ?1
 "#,
     )
     .bind(&jot_id)
-    .fetch_one(&mut conn)
-    .await?;
+    .fetch_all(&mut conn)
+    .await
+    .unwrap()
+    .len();
 
-    match jot_count {
-        Ok(num_rows) => {
-            if num_rows > 0 {
-                dup_id = Some(jot_id.clone());
-                jot_id = fmt_uuid(Uuid::new_v4());
-            }
-        }
-        _ => panic!(),
+    let num_rows = jot_count;
+    if num_rows > 0 {
+        dup_id = Some(jot_id.clone());
+        jot_id = fmt_uuid(Uuid::new_v4());
     };
 
+    /*
     let new_jot = models::Jot::new(
         jot_id.clone(),
         Some(creation_date.clone()),
@@ -121,13 +119,20 @@ SELECT COUNT(jot_id) FROM jots WHERE jot_id = ?1
             Ok(())
         })
     });
+     */
+
+    Ok(())
 }
 
-pub fn get_jots(conn: &SqliteConnection) -> Vec<Jot> {
-    match schema::jots::table.load::<Jot>(conn) {
-        Ok(jots) => jots,
-        _ => vec![],
-    }
+pub async fn get_jots(conn: &SqlitePool) -> Vec<Jot> {
+    query_as(
+        r#"
+SELECT * FROM jots ORDER BY jot_creation_date DESC
+"#,
+    )
+    .fetch_all(conn)
+    .await
+    .unwrap_or(vec![])
 }
 
 pub fn parse_tags(tagline: &str) -> Vec<String> {

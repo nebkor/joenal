@@ -1,11 +1,10 @@
-use std::env;
-use std::io::prelude::*;
-use std::io::stdin;
-
-use clap::{App, Arg, ArgMatches};
+use std::{
+    env,
+    io::{prelude::*, stdin},
+};
 
 use chrono::prelude::*;
-
+use clap::{App, Arg, ArgMatches};
 use jotlog::{establish_connection, get_config, insert_jot, parse_tags, RawJot};
 
 fn main() {
@@ -25,7 +24,7 @@ fn main() {
 
     let conn = establish_connection();
 
-    insert_jot(&conn, &jot);
+    //insert_jot(&conn, &jot);
 }
 
 fn get_args() -> ArgMatches<'static> {
