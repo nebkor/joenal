@@ -125,14 +125,17 @@ SELECT jot_id FROM jots WHERE jot_id = ?1
 }
 
 pub async fn get_jots(conn: &SqlitePool) -> Vec<Jot> {
-    query_as(
+    match query_as(
         r#"
 SELECT * FROM jots ORDER BY jot_creation_date DESC
 "#,
     )
     .fetch_all(conn)
     .await
-    .unwrap_or(vec![])
+    {
+        Ok(jots) => jots,
+        _ => panic!(),
+    }
 }
 
 pub fn parse_tags(tagline: &str) -> Vec<String> {

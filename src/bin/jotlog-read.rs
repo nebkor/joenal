@@ -24,7 +24,7 @@ fn main() {
 
     let conn = establish_connection();
 
-    // insert_jot(&conn, &jot);
+    //insert_jot(&conn, &jot);
 }
 
 fn get_args() -> ArgMatches<'static> {
