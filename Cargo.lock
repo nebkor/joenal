@@ -1314,6 +1314,7 @@ dependencies = [
  "chrono",
  "clap",
  "confy",
+ "dotenv",
  "druid",
  "druid-derive",
  "druid-shell",

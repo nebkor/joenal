@@ -7,7 +7,7 @@ use sqlx::prelude::*;
 
 use super::Uuid;
 
-#[derive(FromRow, Debug)]
+#[derive(FromRow, Debug, Encode)]
 pub struct Jot {
     jot_id: Vec<u8>,
     jot_creation_date: Option<String>,
@@ -62,7 +62,7 @@ impl Display for Jot {
     }
 }
 
-#[derive(FromRow, Debug)]
+#[derive(FromRow, Debug, Encode)]
 pub struct Mapping {
     mapping_id: Vec<u8>,
     tag_id: Vec<u8>,
@@ -86,7 +86,7 @@ impl Mapping {
     }
 }
 
-#[derive(FromRow, Debug)]
+#[derive(FromRow, Debug, Encode)]
 pub struct Tag {
     tag_id: Vec<u8>,
     tag_creation_date: Option<String>,

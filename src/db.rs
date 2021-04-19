@@ -1,11 +1,11 @@
 use std::env;
 
-use sqlx::{prelude::*, SqliteConnection};
+use sqlx::{prelude::*, SqlitePool};
 
-pub async fn establish_connection() -> SqliteConnection {
+pub async fn make_pool() -> SqlitePool {
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
 
-    let conn = SqliteConnection::connect(&database_url).await.unwrap();
+    let conn = SqlitePool::connect(&database_url).await.unwrap();
 
     conn
 }
