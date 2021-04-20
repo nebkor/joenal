@@ -12,20 +12,16 @@ const NAMESPACE_JOT: &str = "930ccacb-5523-4be7-8045-f033465dae8f"; // v4 UUID u
 pub struct JotlogConfig {
     pub dev_id: String,
     pub db_file: String,
-    pub jotlog_root: String,
 }
 
 impl Default for JotlogConfig {
     fn default() -> Self {
         let dev_id = Uuid::new_v4();
         let db_file = Path::new(&std::env::var("HOME").unwrap()).join(".jotlog.sqlite");
-        let dev_id_bytes = dev_id.as_bytes();
-        let root_id = mk_jot_ns_uuid(dev_id_bytes);
 
         JotlogConfig {
             dev_id: dev_id.to_hyphenated().to_string(),
             db_file: db_file.to_str().unwrap().to_owned(),
-            jotlog_root: root_id.to_hyphenated().to_string(),
         }
     }
 }
@@ -40,8 +36,9 @@ pub fn get_device_id() -> Vec<u8> {
 }
 
 pub fn get_jotlog_root() -> Uuid {
-    let root_id = get_config().jotlog_root;
-    Uuid::parse_str(&root_id).unwrap()
+    let dev_id = get_config().dev_id;
+    let dev_id = Uuid::parse_str(&dev_id).unwrap();
+    mk_jot_ns_uuid(dev_id.as_bytes())
 }
 
 pub(crate) fn mk_jot_ns_uuid(data: &[u8]) -> Uuid {

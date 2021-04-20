@@ -4,7 +4,7 @@ use anyhow::Result as AResult;
 use chrono::prelude::*;
 use lazy_static::lazy_static;
 use mime::TEXT_PLAIN_UTF_8;
-use sqlx::{query, query_as, sqlite::SqlitePool, Connection, Row};
+use sqlx::{query, query_as, sqlite::SqlitePool, Connection, Executor, Row};
 use uuid::Uuid;
 
 mod db;
@@ -35,16 +35,16 @@ pub async fn insert_jot(pool: &SqlitePool, jot: &RawJot) -> AResult<()> {
 
     let mut dup_id: Option<Vec<u8>> = None;
 
-    let jot_count: usize = query(
+    let jot_count: u64 = query(
         r#"
 SELECT jot_id FROM jots WHERE jot_id = ?1
 "#,
     )
     .bind(&jot_id)
-    .fetch_all(&mut conn)
+    .execute(&mut conn)
     .await
     .unwrap()
-    .len();
+    .rows_affected();
 
     let num_rows = jot_count;
     if num_rows > 0 {

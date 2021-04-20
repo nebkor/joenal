@@ -30,7 +30,7 @@ fn main() {
 
     config.db_file = db_file.clone();
     env::set_var("DATABASE_URL", db_file);
-    let conn = jotlog::establish_connection();
+    let conn = jotlog::make_pool();
 
     let jots: Vec<RawJot> = parse_lawg(lawg);
     for jot in jots.iter() {

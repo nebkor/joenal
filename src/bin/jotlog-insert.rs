@@ -5,7 +5,7 @@ use std::{
 
 use chrono::prelude::*;
 use clap::{App, Arg, ArgMatches};
-use jotlog::{establish_connection, get_config, insert_jot, parse_tags, RawJot};
+use jotlog::{make_pool, get_config, insert_jot, parse_tags, RawJot};
 
 fn main() {
     let args = get_args();
@@ -22,7 +22,7 @@ fn main() {
     let config = get_config();
     env::set_var("DATABASE_URL", config.db_file);
 
-    let conn = establish_connection();
+    let conn = make_pool();
 
     // insert_jot(&conn, &jot);
 }

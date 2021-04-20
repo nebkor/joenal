@@ -9,16 +9,16 @@ use jotlog::{get_config, get_jots, make_pool, parse_tags, Jot};
 
 #[async_std::main]
 async fn main() -> anyhow::Result<()> {
-    let args = get_args();
+    let _args = get_args();
 
     let config = get_config();
     env::set_var("DATABASE_URL", config.db_file);
 
-    let mut conn = make_pool().await;
+    let conn = make_pool().await;
 
     // insert_jot(&conn, &jot);
 
-    let jots = get_jots(&mut conn).await;
+    let jots = get_jots(&conn).await;
 
     for j in jots.iter() {
         println!("{}", &j);
