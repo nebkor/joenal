@@ -1,6 +1,6 @@
 use std::env;
 
-use sqlx::{prelude::*, SqlitePool};
+use sqlx::SqlitePool;
 
 pub async fn make_pool() -> SqlitePool {
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");

@@ -1,7 +1,5 @@
 use std::path::Path;
 
-use chrono::Utc;
-use confy;
 use serde::{Deserialize, Serialize};
 
 use super::Uuid;
@@ -30,9 +28,9 @@ pub fn get_config() -> JotlogConfig {
     confy::load("jotlog").unwrap()
 }
 
-pub fn get_device_id() -> Vec<u8> {
+pub fn get_device_id() -> Uuid {
     let dev_id = get_config().dev_id;
-    fmt_uuid(Uuid::parse_str(&dev_id).unwrap())
+    Uuid::parse_str(&dev_id).unwrap()
 }
 
 pub fn get_jotlog_root() -> Uuid {
@@ -51,22 +49,21 @@ pub fn fmt_uuid(u: Uuid) -> Vec<u8> {
     u.as_bytes().to_vec()
 }
 
-pub fn mk_tag_id(tag: &str) -> Vec<u8> {
-    fmt_uuid(mk_jot_ns_uuid(tag.as_bytes()))
+pub fn mk_tag_id(tag: &str) -> Uuid {
+    mk_jot_ns_uuid(tag.as_bytes())
 }
 
-pub fn mk_jot_id(jot: &crate::RawJot) -> Vec<u8> {
+pub(crate) fn mk_jot_id(jot: &crate::RawJot) -> Uuid {
     let jotlog_root = get_jotlog_root();
     let content = [
         jot.content.as_bytes(),
         jot.creation_date.to_rfc3339().as_bytes(),
     ]
     .concat();
-    let jot_id = Uuid::new_v5(&jotlog_root, &content);
-    fmt_uuid(jot_id)
+    Uuid::new_v5(&jotlog_root, &content)
 }
 
-pub fn mk_mapping_id(jot_id: &[u8], tag_id: &[u8]) -> Vec<u8> {
-    let mapping_id = mk_jot_ns_uuid(&[jot_id, tag_id].concat());
-    fmt_uuid(mapping_id)
+pub fn mk_mapping_id(jot_id: &Uuid, tag_id: &Uuid) -> Uuid {
+    let data = [*jot_id.as_bytes(), *tag_id.as_bytes()].concat();
+    mk_jot_ns_uuid(&data)
 }

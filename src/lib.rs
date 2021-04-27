@@ -1,10 +1,9 @@
 use std::collections::BTreeSet;
 
 use anyhow::Result as AResult;
-use chrono::prelude::*;
 use lazy_static::lazy_static;
 use mime::TEXT_PLAIN_UTF_8;
-use sqlx::{query, query_as, sqlite::SqlitePool, Connection, Executor, Row};
+use sqlx::{query, query_as, query_scalar, sqlite::SqlitePool};
 use uuid::Uuid;
 
 mod db;
@@ -15,10 +14,12 @@ pub use db::*;
 pub use models::*;
 pub use util::*;
 
+pub type StarDate = chrono::DateTime<chrono::Utc>;
+
 #[derive(Debug, PartialEq)]
 pub struct RawJot {
     pub content: String,
-    pub creation_date: DateTime<Utc>,
+    pub creation_date: StarDate,
     pub tags: Vec<String>,
 }
 
@@ -27,99 +28,71 @@ pub async fn insert_jot(pool: &SqlitePool, jot: &RawJot) -> AResult<()> {
         static ref UTF_8_MIME: String = TEXT_PLAIN_UTF_8.to_string();
     }
 
-    let mut conn = pool.acquire().await?;
-
     let mut jot_id = mk_jot_id(&jot);
     let dev_id = get_device_id();
-    let creation_date = jot.creation_date.to_rfc3339();
 
-    let mut dup_id: Option<Vec<u8>> = None;
+    let mut dup_id = None;
 
-    let jot_count: u64 = query(
+    // do everything in a single transaction
+    let mut tx = pool.begin().await?;
+
+    let jot_count: u32 = query_scalar(
         r#"
-SELECT jot_id FROM jots WHERE jot_id = ?1
+SELECT COUNT(*) FROM jots WHERE jot_id = ?1
 "#,
     )
     .bind(&jot_id)
-    .execute(&mut conn)
-    .await
-    .unwrap()
-    .rows_affected();
+    .fetch_one(&mut tx)
+    .await?;
 
-    let num_rows = jot_count;
-    if num_rows > 0 {
-        dup_id = Some(jot_id.clone());
-        jot_id = fmt_uuid(Uuid::new_v4());
+    if jot_count > 0 {
+        dup_id = Some(jot_id);
+        jot_id = Uuid::new_v4();
     };
 
-    /*
     let new_jot = models::Jot::new(
-        jot_id.clone(),
-        Some(creation_date.clone()),
+        jot_id,
+        Some(jot.creation_date),
         jot.content.as_bytes().to_vec(),
         UTF_8_MIME.clone(),
-        dev_id.clone(),
+        dev_id,
         dup_id,
     );
 
-    let _ = conn.transaction(|conn| {
-        Box::pin(async move {
-            // diesel::insert_into(schema::jots::table)
-            //     .values(&new_jot)
-            //     .execute(&*conn)?;
+    let mut new_tags: Vec<models::Tag> = Vec::with_capacity(jot.tags.len());
+    //let mut new_scores: Vec<(Uuid, i32)> = Vec::with_capacity(jot.tags.len());
+    let mut mappings: Vec<models::Mapping> = Vec::with_capacity(jot.tags.len());
 
-            let mut new_tags: Vec<models::Tag> = Vec::with_capacity(jot.tags.len());
-            let mut mappings: Vec<models::Mapping> = Vec::with_capacity(jot.tags.len());
+    for tag in jot.tags.iter() {
+        let id = mk_tag_id(tag);
+        let old_score: i32 = query_scalar("select score from tags where tag_id = ?1")
+            .bind(&id)
+            .fetch_one(&mut tx)
+            .await?;
 
-            for tag in jot.tags.iter() {
-                let id = mk_tag_id(tag);
-                let old_score = match schema::tags::table.find(&id).first::<models::Tag>(&*conn) {
-                    Ok(t) => t.get_score(),
-                    _ => 0,
-                };
+        let new_score = old_score + 1;
 
-                let new_score = old_score + 1;
+        let new_tag = models::Tag::new(tag.clone(), id, dev_id, Some(jot.creation_date), new_score);
 
-                let new_tag = models::Tag::new(
-                    tag.clone(),
-                    id.clone(),
-                    dev_id.clone(),
-                    Some(creation_date.clone()),
-                    new_score,
-                );
+        if old_score == 0 {
+            new_tags.push(new_tag);
+        } else {
+            //new_scores.push((id.clone(), new_score))
+            let _ = query(r#"UPDATE tags SET score = ?1 WHERE tag_id = ?2"#)
+                .bind(new_score)
+                .bind(&id)
+                .execute(&mut tx)
+                .await?;
+        }
 
-                if old_score == 0 {
-                    new_tags.push(new_tag);
-                } else {
-                    // TODO: figure out bulk update.
-                    diesel::update(schema::tags::table.filter(schema::tags::tag_id.eq(&id)))
-                        .set(schema::tags::score.eq(new_score))
-                        .execute(&*conn)?;
-                }
+        // now the mapping
+        let mapping_id = mk_mapping_id(&jot_id, &id);
 
-                // now the mapping
-                let mapping_id = mk_mapping_id(&jot_id, &id);
+        let mapping = models::Mapping::new(mapping_id, id, jot_id, Some(jot.creation_date));
+        mappings.push(mapping);
+    }
 
-                let mapping = models::Mapping::new(
-                    mapping_id,
-                    id,
-                    jot_id.clone(),
-                    Some(creation_date.clone()),
-                );
-                mappings.push(mapping);
-            }
-            diesel::insert_into(schema::tags::table)
-                .values(&new_tags)
-                .execute(&*conn)?;
-
-            diesel::insert_into(schema::tag_map::table)
-                .values(&mappings)
-                .execute(&*conn)?;
-
-            Ok(())
-        })
-    });
-     */
+    let _ = new_jot.as_insert().execute(&mut tx).await?;
 
     Ok(())
 }

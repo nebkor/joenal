@@ -5,9 +5,10 @@ use std::{
 
 use chrono::prelude::*;
 use clap::{App, Arg, ArgMatches};
-use jotlog::{make_pool, get_config, insert_jot, parse_tags, RawJot};
+use jotlog::{get_config, insert_jot, make_pool, parse_tags, RawJot};
 
-fn main() {
+#[async_std::main]
+async fn main() -> anyhow::Result<()> {
     let args = get_args();
     let creation_date = Utc::now();
     let content = get_content(&args);
@@ -22,9 +23,9 @@ fn main() {
     let config = get_config();
     env::set_var("DATABASE_URL", config.db_file);
 
-    let conn = make_pool();
+    let conn = make_pool().await;
 
-    // insert_jot(&conn, &jot);
+    insert_jot(&conn, &jot).await
 }
 
 fn get_args() -> ArgMatches<'static> {
