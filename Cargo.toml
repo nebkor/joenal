@@ -17,7 +17,7 @@ rand = "0.8"
 regex = "1"
 serde = { version = "1", features = ["derive"] }
 uuid = { version = "*", default-features = false, features = ["v5", "v4"] }
-druid = { version = "*", path = "../druid/druid" }
+druid = { version = "*", path = "../druid/druid", default-features = false, features = ["x11", "svg", "image", "png", "jpeg"]}
 druid-shell = { version = "*", default-features = false, path = "../druid/druid-shell" }
 druid-derive = { version = "*", path = "../druid/druid-derive" }
 pulldown-cmark = { version = "0.8", default-features = false }
