@@ -14,38 +14,37 @@
 
 //! An example of live markdown preview
 
-use pulldown_cmark::{Event as ParseEvent, Parser, Tag};
-
-use druid::text::{AttributesAdder, RichText, RichTextBuilder};
-use druid::widget::prelude::*;
-use druid::widget::{Controller, LineBreaking, RawLabel, Scroll, Split, TextBox};
 use druid::{
+    text::{AttributesAdder, RichText, RichTextBuilder},
+    widget::{prelude::*, Controller, LineBreaking, RawLabel, Scroll, Split, TextBox},
     AppDelegate, AppLauncher, Color, Command, Data, DelegateCtx, FontFamily, FontStyle, FontWeight,
     Handled, Lens, LocalizedString, Menu, Selector, Target, Widget, WidgetExt, WindowDesc,
     WindowId,
 };
+use jotlog::{get_config, get_jots, make_pool, Jot};
+use pulldown_cmark::{Event as ParseEvent, Parser, Tag};
+use uuid::Uuid;
 
-const WINDOW_TITLE: LocalizedString<AppState> = LocalizedString::new("Minimal Markdown");
-
-const TEXT: &str = "*Hello* ***world***! This is a `TextBox` where you can \
-		    use limited markdown notation, which is reflected in the \
-		    **styling** of the `Label` on the left.
-
-		    If you're curious about Druid, a good place to ask questions \
-		    and discuss development work is our [Zulip chat instance], \
-		    in the #druid-help and #druid channels, respectively.\n\n\n\
-
-		    [Zulip chat instance]: https://xi.zulipchat.com";
+const WINDOW_TITLE: LocalizedString<AppState> = LocalizedString::new("Joenal");
 
 const SPACER_SIZE: f64 = 8.0;
 const BLOCKQUOTE_COLOR: Color = Color::grey8(0x88);
 const LINK_COLOR: Color = Color::rgb8(0, 0, 0xEE);
 const OPEN_LINK: Selector<String> = Selector::new("druid-example.open-link");
 
-#[derive(Clone, Data, Lens)]
+#[derive(Clone, Lens)]
 struct AppState {
     raw: String,
     rendered: RichText,
+    current_jot: Uuid,
+}
+
+impl Data for AppState {
+    fn same(&self, other: &Self) -> bool {
+        self.current_jot == other.current_jot
+            && self.raw.same(&other.raw)
+            && self.rendered.same(&other.rendered)
+    }
 }
 
 /// A controller that rebuilds the preview when edits occur
@@ -80,10 +79,7 @@ impl<T: Data> AppDelegate<T> for Delegate {
         _env: &Env,
     ) -> Handled {
         if let Some(url) = cmd.get(OPEN_LINK) {
-            #[cfg(not(target_arch = "wasm32"))]
             open::that_in_background(url);
-            #[cfg(target_arch = "wasm32")]
-            tracing::warn!("opening link({}) not supported on web yet.", url);
             Handled::Yes
         } else {
             Handled::No
@@ -91,17 +87,32 @@ impl<T: Data> AppDelegate<T> for Delegate {
     }
 }
 
-fn main() {
+#[async_std::main]
+async fn main() -> anyhow::Result<()> {
+    let config = get_config();
+    std::env::set_var("DATABASE_URL", config.db_file);
+
+    let conn = make_pool().await;
+
+    // insert_jot(&conn, &jot);
+
+    let jots = get_jots(&conn).await;
+    let jot = &jots[0];
+
+    // just between us friends, we don't have any non-utf8 bytes in our content
+    let content: &str = std::str::from_utf8(jot.content().bytes).unwrap();
+
     // describe the main window
     let main_window = WindowDesc::new(build_root_widget())
         .title(WINDOW_TITLE)
-        .menu(make_menu)
         .window_size((700.0, 600.0));
 
+    let current_jot = Uuid::default();
     // create the initial app state
     let initial_state = AppState {
-        raw: TEXT.to_owned(),
-        rendered: rebuild_rendered_text(TEXT),
+        raw: "butts".to_owned(),
+        rendered: rebuild_rendered_text("butts"),
+        current_jot,
     };
 
     // start the application
@@ -110,6 +121,8 @@ fn main() {
         .delegate(Delegate)
         .launch(initial_state)
         .expect("Failed to launch application");
+
+    Ok(())
 }
 
 fn build_root_widget() -> impl Widget<AppState> {
@@ -227,26 +240,4 @@ fn add_attribute_for_tag(tag: &Tag, mut attrs: AttributesAdder) {
         // ignore other tags for now
         _ => (),
     }
-}
-
-#[allow(unused_assignments, unused_mut)]
-fn make_menu<T: Data>(_window_id: Option<WindowId>, _app_state: &AppState, _env: &Env) -> Menu<T> {
-    let mut base = Menu::empty();
-    #[cfg(target_os = "macos")]
-    {
-        base = base.entry(druid::platform_menus::mac::application::default())
-    }
-    #[cfg(any(target_os = "windows", target_os = "linux"))]
-    {
-        base = base.entry(druid::platform_menus::win::file::default());
-    }
-    base.entry(
-        Menu::new(LocalizedString::new("common-menu-edit-menu"))
-            .entry(druid::platform_menus::common::undo())
-            .entry(druid::platform_menus::common::redo())
-            .separator()
-            .entry(druid::platform_menus::common::cut().enabled(false))
-            .entry(druid::platform_menus::common::copy())
-            .entry(druid::platform_menus::common::paste()),
-    )
 }

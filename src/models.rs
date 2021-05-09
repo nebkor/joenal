@@ -7,6 +7,11 @@ use sqlx::{query::Query, sqlite::SqliteArguments, FromRow, Sqlite};
 
 use super::{StarDate, Uuid};
 
+pub struct Content<'j> {
+    pub bytes: &'j [u8],
+    pub mime_type: &'j str,
+}
+
 #[derive(FromRow, Debug)]
 pub struct Jot {
     jot_id: Uuid,
@@ -47,6 +52,21 @@ INSERT INTO jots (jot_id, jot_creation_date, jot_content, jot_content_type, devi
             .bind(self.jot_content_type.clone())
             .bind(self.device_id)
             .bind(self.dup_id)
+    }
+
+    pub fn created(&self) -> Option<StarDate> {
+        self.jot_creation_date
+    }
+
+    pub fn id(&self) -> Uuid {
+        self.jot_id
+    }
+
+    pub fn content(&self) -> Content {
+        Content {
+            bytes: &self.jot_content,
+            mime_type: &self.jot_content_type,
+        }
     }
 }
 
