@@ -8,12 +8,15 @@ remotes=$(git remote -v |sed 's/(.*$//' |sort |uniq)
 branch=$(git rev-parse --abbrev-ref HEAD)
 commit=$(git rev-parse HEAD)
 
-${HOME}/bin/_jotlog-insert -t "host:${host}" -t headless -t git-commit -m "Committed ${commit}:
-
+${HOME}/bin/_jotlog-insert -t "host:${host}" -t headless -t git-commit -m "
 $logline
----
 
-branch: $branch
-GIT_WORKING_DIR=$cdir
-remotes:
-$remotes" --headless
+## branch: $branch
+
+## GIT_WORKING_DIR=$cdir
+
+## remotes:
+$remotes
+
+## commit hash
+$commit" --headless
