@@ -111,6 +111,21 @@ SELECT * FROM jots ORDER BY jot_creation_date DESC
     }
 }
 
+pub async fn get_jot(conn: &SqlitePool, id: Uuid) -> Jot {
+    match query_as(
+        r#"
+SELECT * FROM jots WHERE jot_id = ?1
+"#,
+    )
+    .bind(&id)
+    .fetch_one(conn)
+    .await
+    {
+        Ok(jots) => jots,
+        _ => panic!(),
+    }
+}
+
 pub fn parse_tags(tagline: &str) -> Vec<String> {
     let tags: BTreeSet<String> = tagline
         .split(',')

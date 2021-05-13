@@ -12,7 +12,7 @@ pub struct Content<'j> {
     pub mime_type: &'j str,
 }
 
-#[derive(FromRow, Debug)]
+#[derive(Clone, FromRow, Debug)]
 pub struct Jot {
     jot_id: Uuid,
     jot_creation_date: Option<StarDate>,
@@ -68,6 +68,23 @@ INSERT INTO jots (jot_id, jot_creation_date, jot_content, jot_content_type, devi
             mime_type: &self.jot_content_type,
         }
     }
+
+    pub fn button_label(&self) -> String {
+        let date = if let Some(d) = self.jot_creation_date {
+            d.to_rfc3339()
+        } else {
+            "<no date>".to_string()
+        };
+
+        let dlen = date.len();
+        let date = &date[0..=(10.min(dlen))];
+
+        let content = std::str::from_utf8(&self.jot_content).unwrap();
+        let clen = content.len();
+        let text = &content[0..(30.min(clen))];
+
+        format!("{}: {}...", date, text)
+    }
 }
 
 impl PartialEq for Jot {
@@ -95,7 +112,13 @@ impl Display for Jot {
     }
 }
 
-#[derive(FromRow, Debug)]
+impl druid::Data for Jot {
+    fn same(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+
+#[derive(Clone, FromRow, Debug)]
 pub struct Mapping {
     mapping_id: Uuid,
     tag_id: Uuid,
@@ -131,7 +154,7 @@ INSERT INTO tag_map (mapping_id, tag_id, jot_id, mapping_date) VALUES (?, ?, ?, 
     }
 }
 
-#[derive(FromRow, Debug)]
+#[derive(Clone, FromRow, Debug)]
 pub struct Tag {
     tag_id: Uuid,
     tag_creation_date: Option<StarDate>,

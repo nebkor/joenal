@@ -14,12 +14,17 @@
 
 //! An example of live markdown preview
 
+use std::sync::Arc;
+
 use druid::{
     text::{AttributesAdder, RichText, RichTextBuilder},
-    widget::{prelude::*, Controller, LineBreaking, RawLabel, Scroll, Split, TextBox},
+    widget::{
+        prelude::*, Button, Controller, Flex, Label, LineBreaking, List, ListIter, RawLabel,
+        Scroll, Split,
+    },
     AppDelegate, AppLauncher, Color, Command, Data, DelegateCtx, FontFamily, FontStyle, FontWeight,
-    Handled, Lens, LocalizedString, Menu, Selector, Target, Widget, WidgetExt, WindowDesc,
-    WindowId,
+    Handled, Lens, LensExt, LocalizedString, Selector, Target, UnitPoint, Widget, WidgetExt,
+    WindowDesc,
 };
 use jotlog::{get_config, get_jots, make_pool, Jot};
 use pulldown_cmark::{Event as ParseEvent, Parser, Tag};
@@ -31,61 +36,6 @@ const SPACER_SIZE: f64 = 8.0;
 const BLOCKQUOTE_COLOR: Color = Color::grey8(0x88);
 const LINK_COLOR: Color = Color::rgb8(0, 0, 0xEE);
 const OPEN_LINK: Selector<String> = Selector::new("druid-example.open-link");
-
-#[derive(Clone, Lens)]
-struct AppState {
-    raw: String,
-    rendered: RichText,
-    current_jot: Uuid,
-}
-
-impl Data for AppState {
-    fn same(&self, other: &Self) -> bool {
-        self.current_jot == other.current_jot
-            && self.raw.same(&other.raw)
-            && self.rendered.same(&other.rendered)
-    }
-}
-
-/// A controller that rebuilds the preview when edits occur
-struct RichTextRebuilder;
-
-impl<W: Widget<AppState>> Controller<AppState, W> for RichTextRebuilder {
-    fn event(
-        &mut self,
-        child: &mut W,
-        ctx: &mut EventCtx,
-        event: &Event,
-        data: &mut AppState,
-        env: &Env,
-    ) {
-        let pre_data = data.raw.to_owned();
-        child.event(ctx, event, data, env);
-        if !data.raw.same(&pre_data) {
-            data.rendered = rebuild_rendered_text(&data.raw);
-        }
-    }
-}
-
-struct Delegate;
-
-impl<T: Data> AppDelegate<T> for Delegate {
-    fn command(
-        &mut self,
-        _ctx: &mut DelegateCtx,
-        _target: Target,
-        cmd: &Command,
-        _data: &mut T,
-        _env: &Env,
-    ) -> Handled {
-        if let Some(url) = cmd.get(OPEN_LINK) {
-            open::that_in_background(url);
-            Handled::Yes
-        } else {
-            Handled::No
-        }
-    }
-}
 
 #[async_std::main]
 async fn main() -> anyhow::Result<()> {
@@ -99,7 +49,7 @@ async fn main() -> anyhow::Result<()> {
     let jots = get_jots(&conn).await;
     let jot = &jots[0];
 
-    // just between us friends, we don't have any non-utf8 bytes in our content
+    // just between us friends, we don't have any non-utf8 bytes in our content yet
     let content: &str = std::str::from_utf8(jot.content().bytes).unwrap();
 
     // describe the main window
@@ -107,12 +57,11 @@ async fn main() -> anyhow::Result<()> {
         .title(WINDOW_TITLE)
         .window_size((700.0, 600.0));
 
-    let current_jot = Uuid::default();
-    // create the initial app state
     let initial_state = AppState {
-        raw: "butts".to_owned(),
-        rendered: rebuild_rendered_text("butts"),
-        current_jot,
+        rendered: rebuild_rendered_text(content),
+        current_jot: 0,
+        pool: conn.clone(),
+        jots: Arc::new(jots),
     };
 
     // start the application
@@ -126,7 +75,7 @@ async fn main() -> anyhow::Result<()> {
 }
 
 fn build_root_widget() -> impl Widget<AppState> {
-    let label = Scroll::new(
+    let rendered = Scroll::new(
         RawLabel::new()
             .with_text_color(Color::BLACK)
             .with_line_break_mode(LineBreaking::WordWrap)
@@ -138,13 +87,56 @@ fn build_root_widget() -> impl Widget<AppState> {
     .background(Color::grey8(222))
     .expand();
 
-    let textbox = TextBox::multiline()
-        .lens(AppState::raw)
-        .controller(RichTextRebuilder)
+    let jotbox = Scroll::new(List::new(|| {
+        Label::new(|item: &(Jot, usize, usize), _env: &_| {
+            let jot = &item.0;
+            jot.button_label()
+        })
+        .align_vertical(UnitPoint::LEFT)
+        .padding(10.0)
         .expand()
-        .padding(5.0);
+        .height(50.0)
+        .background(Color::rgb(0.5, 0.5, 0.5))
+    }))
+    .vertical();
 
-    Split::columns(label, textbox)
+    Split::columns(jotbox, rendered)
+}
+
+impl ListIter<(Jot, usize, usize)> for AppState {
+    fn for_each(&self, mut cb: impl FnMut(&(Jot, usize, usize), usize)) {
+        for (i, item) in self.jots.iter().enumerate() {
+            let d = (item.to_owned(), i, self.current_jot);
+            cb(&d, i);
+        }
+    }
+
+    fn for_each_mut(&mut self, mut cb: impl FnMut(&mut (Jot, usize, usize), usize)) {
+        let mut new_data = Vec::with_capacity(self.data_len());
+        let mut any_changed = false;
+        let mut new_current_jot = self.current_jot;
+
+        for (i, item) in self.jots.iter().enumerate() {
+            let mut d = (item.to_owned(), i, self.current_jot);
+            cb(&mut d, i);
+
+            // if !any_changed && !(*item, i, self.current_jot_room).same(&d) {
+            if !any_changed && !self.current_jot.same(&d.2) {
+                any_changed = true;
+                new_current_jot = d.2;
+            }
+            new_data.push(d.0);
+        }
+
+        if any_changed {
+            self.jots = Arc::new(new_data);
+            self.current_jot = new_current_jot;
+        }
+    }
+
+    fn data_len(&self) -> usize {
+        self.jots.len()
+    }
 }
 
 /// Parse a markdown string and generate a `RichText` object with
@@ -239,5 +231,61 @@ fn add_attribute_for_tag(tag: &Tag, mut attrs: AttributesAdder) {
         }
         // ignore other tags for now
         _ => (),
+    }
+}
+
+#[derive(Clone, Lens)]
+struct AppState {
+    rendered: RichText,
+    current_jot: usize,
+    pool: sqlx::SqlitePool,
+    jots: Arc<Vec<Jot>>,
+}
+
+impl Data for AppState {
+    fn same(&self, other: &Self) -> bool {
+        self.current_jot == other.current_jot && self.rendered.same(&other.rendered)
+    }
+}
+
+/// A controller that rebuilds the preview when edits occur
+struct RichTextRebuilder;
+
+impl<W: Widget<AppState>> Controller<AppState, W> for RichTextRebuilder {
+    fn event(
+        &mut self,
+        child: &mut W,
+        ctx: &mut EventCtx,
+        event: &Event,
+        data: &mut AppState,
+        env: &Env,
+    ) {
+        let pre_data = data.current_jot;
+        child.event(ctx, event, data, env);
+        if data.current_jot != pre_data {
+            let jot = &data.jots[data.current_jot];
+            let txt = std::str::from_utf8(jot.content().bytes).unwrap();
+            data.rendered = rebuild_rendered_text(txt);
+        }
+    }
+}
+
+struct Delegate;
+
+impl<T: Data> AppDelegate<T> for Delegate {
+    fn command(
+        &mut self,
+        _ctx: &mut DelegateCtx,
+        _target: Target,
+        cmd: &Command,
+        _data: &mut T,
+        _env: &Env,
+    ) -> Handled {
+        if let Some(url) = cmd.get(OPEN_LINK) {
+            open::that_in_background(url);
+            Handled::Yes
+        } else {
+            Handled::No
+        }
     }
 }
