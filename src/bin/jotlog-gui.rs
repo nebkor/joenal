@@ -88,15 +88,18 @@ fn build_root_widget() -> impl Widget<AppState> {
     .expand();
 
     let jotbox = Scroll::new(List::new(|| {
-        Label::new(|item: &(Jot, usize, usize), _env: &_| {
+        let label = Label::new(|item: &(Jot, usize, usize), _env: &_| {
             let jot = &item.0;
             jot.button_label()
-        })
-        .align_vertical(UnitPoint::LEFT)
-        .padding(10.0)
-        .expand()
-        .height(50.0)
-        .background(Color::rgb(0.5, 0.5, 0.5))
+        });
+        let button = Button::from_label(label)
+            .align_vertical(UnitPoint::LEFT)
+            .padding(10.0)
+            .expand()
+            .height(50.0)
+            .background(Color::rgb(0.5, 0.5, 0.5));
+
+        button.on_click(|_event_ctx, data, _env| (*data).2 = data.1)
     }))
     .vertical();
 
@@ -122,6 +125,7 @@ impl ListIter<(Jot, usize, usize)> for AppState {
 
             // if !any_changed && !(*item, i, self.current_jot_room).same(&d) {
             if !any_changed && !self.current_jot.same(&d.2) {
+                dbg!(d.2, self.current_jot);
                 any_changed = true;
                 new_current_jot = d.2;
             }
@@ -131,6 +135,8 @@ impl ListIter<(Jot, usize, usize)> for AppState {
         if any_changed {
             self.jots = Arc::new(new_data);
             self.current_jot = new_current_jot;
+            let text = std::str::from_utf8(self.jots[new_current_jot].content().bytes).unwrap();
+            self.rendered = rebuild_rendered_text(text);
         }
     }
 
