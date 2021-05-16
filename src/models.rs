@@ -77,9 +77,11 @@ INSERT INTO jots (jot_id, jot_creation_date, jot_content, jot_content_type, devi
         };
 
         let dlen = date.len();
-        let date = &date[0..=(10.min(dlen))];
+        let date = &date[0..(10.min(dlen))];
 
-        let content = std::str::from_utf8(&self.jot_content).unwrap();
+        let content = std::str::from_utf8(&self.jot_content)
+            .unwrap()
+            .replace("\n", " ");
         let clen = content.len();
         let text = &content[0..(30.min(clen))];
 

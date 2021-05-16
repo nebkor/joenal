@@ -1,8 +1,6 @@
-// Copyright 2020 The Druid Authors.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
+// Originally licensed under the Apache License from the Druid Authors, Version
+// 2.0 (the "License"); you may not use this file except in compliance with the
+// License. You may obtain a copy of the License at
 //
 //     http://www.apache.org/licenses/LICENSE-2.0
 //
@@ -19,16 +17,14 @@ use std::sync::Arc;
 use druid::{
     text::{AttributesAdder, RichText, RichTextBuilder},
     widget::{
-        prelude::*, Button, Controller, Flex, Label, LineBreaking, List, ListIter, RawLabel,
-        Scroll, Split,
+        prelude::*, Button, Controller, Label, LineBreaking, List, ListIter, RawLabel, Scroll,
+        Split,
     },
     AppDelegate, AppLauncher, Color, Command, Data, DelegateCtx, FontFamily, FontStyle, FontWeight,
-    Handled, Lens, LensExt, LocalizedString, Selector, Target, UnitPoint, Widget, WidgetExt,
-    WindowDesc,
+    Handled, Lens, LocalizedString, Selector, Target, UnitPoint, Widget, WidgetExt, WindowDesc,
 };
 use jotlog::{get_config, get_jots, make_pool, Jot};
 use pulldown_cmark::{Event as ParseEvent, Parser, Tag};
-use uuid::Uuid;
 
 const WINDOW_TITLE: LocalizedString<AppState> = LocalizedString::new("Joenal");
 
@@ -88,10 +84,7 @@ fn build_root_widget() -> impl Widget<AppState> {
     .expand();
 
     let jotbox = Scroll::new(List::new(|| {
-        let label = Label::new(|item: &(Jot, usize, usize), _env: &_| {
-            let jot = &item.0;
-            jot.button_label()
-        });
+        let label = Label::new(|item: &(String, usize, usize), _env: &_| item.0.clone());
         let button = Button::from_label(label)
             .align_vertical(UnitPoint::LEFT)
             .padding(10.0)
@@ -103,37 +96,35 @@ fn build_root_widget() -> impl Widget<AppState> {
     }))
     .vertical();
 
-    Split::columns(jotbox, rendered)
+    Split::columns(jotbox, rendered).draggable(true)
 }
 
-impl ListIter<(Jot, usize, usize)> for AppState {
-    fn for_each(&self, mut cb: impl FnMut(&(Jot, usize, usize), usize)) {
+impl ListIter<(String, usize, usize)> for AppState {
+    fn for_each(&self, mut cb: impl FnMut(&(String, usize, usize), usize)) {
         for (i, item) in self.jots.iter().enumerate() {
-            let d = (item.to_owned(), i, self.current_jot);
+            let s = item.button_label();
+            let d = (s, i, self.current_jot);
             cb(&d, i);
         }
     }
 
-    fn for_each_mut(&mut self, mut cb: impl FnMut(&mut (Jot, usize, usize), usize)) {
-        let mut new_data = Vec::with_capacity(self.data_len());
-        let mut any_changed = false;
+    fn for_each_mut(&mut self, mut cb: impl FnMut(&mut (String, usize, usize), usize)) {
         let mut new_current_jot = self.current_jot;
+        let mut any_changed = false;
 
         for (i, item) in self.jots.iter().enumerate() {
-            let mut d = (item.to_owned(), i, self.current_jot);
+            let s = item.button_label();
+            let mut d = (s, i, self.current_jot);
             cb(&mut d, i);
 
             // if !any_changed && !(*item, i, self.current_jot_room).same(&d) {
-            if !any_changed && !self.current_jot.same(&d.2) {
-                dbg!(d.2, self.current_jot);
+            if !self.current_jot.same(&d.2) {
                 any_changed = true;
                 new_current_jot = d.2;
             }
-            new_data.push(d.0);
         }
 
         if any_changed {
-            self.jots = Arc::new(new_data);
             self.current_jot = new_current_jot;
             let text = std::str::from_utf8(self.jots[new_current_jot].content().bytes).unwrap();
             self.rendered = rebuild_rendered_text(text);

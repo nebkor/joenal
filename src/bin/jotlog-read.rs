@@ -1,11 +1,7 @@
-use std::{
-    env,
-    io::{prelude::*, stdin},
-};
+use std::env;
 
-use chrono::prelude::*;
 use clap::{App, Arg, ArgMatches};
-use jotlog::{get_config, get_jots, make_pool, parse_tags, Jot};
+use jotlog::{get_config, get_jots, make_pool};
 
 #[async_std::main]
 async fn main() -> anyhow::Result<()> {
