@@ -1,9 +1,9 @@
 [package]
-name = "jotlog"
+name = "joenal"
 version = "0.1.0"
 authors = ["Joe Ardent <code@ardent.nebcorp.com>"]
 edition = "2018"
-default-run = "jotlog-gui"
+default-run = "joenal-gui"
 
 [dependencies]
 chrono = { version = "0.4", features = [ "clock", "std" ] }
