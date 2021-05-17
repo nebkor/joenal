@@ -23,7 +23,7 @@ use druid::{
     AppDelegate, AppLauncher, Color, Command, Data, DelegateCtx, FontFamily, FontStyle, FontWeight,
     Handled, Lens, LocalizedString, Selector, Target, UnitPoint, Widget, WidgetExt, WindowDesc,
 };
-use jotlog::{get_config, get_jots, make_pool, Jot};
+use joenal::{get_config, get_jots, make_pool, Jot};
 use pulldown_cmark::{Event as ParseEvent, Parser, Tag};
 
 const WINDOW_TITLE: LocalizedString<AppState> = LocalizedString::new("Joenal");

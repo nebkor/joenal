@@ -5,7 +5,7 @@ use std::{
 
 use chrono::prelude::*;
 use clap::{App, Arg, ArgMatches};
-use jotlog::{get_config, insert_jot, make_pool, parse_tags, RawJot};
+use joenal::{get_config, insert_jot, make_pool, parse_tags, RawJot};
 
 #[async_std::main]
 async fn main() -> anyhow::Result<()> {
@@ -30,7 +30,7 @@ async fn main() -> anyhow::Result<()> {
 
 fn get_args() -> ArgMatches<'static> {
     App::new("Jotlog Insert")
-        .about("Create and insert an entry into the jotlog database.")
+        .about("Create and insert an entry into the joenal database.")
         .arg(
             Arg::with_name("HEADLESS")
                 .help("Do not prompt for input.")
@@ -59,7 +59,7 @@ fn get_content(args: &ArgMatches<'_>) -> String {
     let mut content = String::new();
 
     if !args.is_present("HEADLESS") {
-        println!("Enter text for jotlog entry, hit ^d to end input:");
+        println!("Enter text for joenal entry, hit ^d to end input:");
         let _ = stdin().read_to_string(&mut content);
     }
 

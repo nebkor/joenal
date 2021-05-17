@@ -1,7 +1,7 @@
 use std::env;
 
 use clap::{App, Arg, ArgMatches};
-use jotlog::{get_config, get_jots, make_pool};
+use joenal::{get_config, get_jots, make_pool};
 
 #[async_std::main]
 async fn main() -> anyhow::Result<()> {
@@ -25,7 +25,7 @@ async fn main() -> anyhow::Result<()> {
 
 fn get_args() -> ArgMatches<'static> {
     App::new("Jotlog Insert")
-        .about("Create and insert an entry into the jotlog database.")
+        .about("Create and insert an entry into the joenal database.")
         .arg(
             Arg::with_name("HEADLESS")
                 .help("Do not prompt for input.")

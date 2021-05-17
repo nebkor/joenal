@@ -15,7 +15,7 @@ pub struct JotlogConfig {
 impl Default for JotlogConfig {
     fn default() -> Self {
         let dev_id = Uuid::new_v4();
-        let db_file = Path::new(&std::env::var("HOME").unwrap()).join(".jotlog.sqlite");
+        let db_file = Path::new(&std::env::var("HOME").unwrap()).join(".joenal.sqlite");
 
         JotlogConfig {
             dev_id: dev_id.to_hyphenated().to_string(),
@@ -25,7 +25,7 @@ impl Default for JotlogConfig {
 }
 
 pub fn get_config() -> JotlogConfig {
-    confy::load("jotlog").unwrap()
+    confy::load("joenal").unwrap()
 }
 
 pub fn get_device_id() -> Uuid {
@@ -33,7 +33,7 @@ pub fn get_device_id() -> Uuid {
     Uuid::parse_str(&dev_id).unwrap()
 }
 
-pub fn get_jotlog_root() -> Uuid {
+pub fn get_joenal_root() -> Uuid {
     let dev_id = get_config().dev_id;
     let dev_id = Uuid::parse_str(&dev_id).unwrap();
     mk_jot_ns_uuid(dev_id.as_bytes())
@@ -54,13 +54,13 @@ pub fn mk_tag_id(tag: &str) -> Uuid {
 }
 
 pub(crate) fn mk_jot_id(jot: &crate::RawJot) -> Uuid {
-    let jotlog_root = get_jotlog_root();
+    let joenal_root = get_joenal_root();
     let content = [
         jot.content.as_bytes(),
         jot.creation_date.to_rfc3339().as_bytes(),
     ]
     .concat();
-    Uuid::new_v5(&jotlog_root, &content)
+    Uuid::new_v5(&joenal_root, &content)
 }
 
 pub fn mk_mapping_id(jot_id: &Uuid, tag_id: &Uuid) -> Uuid {
