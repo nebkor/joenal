@@ -87,13 +87,12 @@ fn get_tags(args: &ArgMatches<'_>) -> Vec<String> {
         println!(
             "\nEnter a list of comma-separated tags (spaces allowed in tags); hit 'enter' when done."
         );
-        match stdin().read_line(&mut itags) {
-            Ok(_) => tags.append(&mut parse_tags(&itags)),
-            _ => (),
+        if stdin().read_line(&mut itags).is_ok() {
+            tags.append(&mut parse_tags(&itags))
         }
     }
 
-    if tags.len() == 0 {
+    if tags.is_empty() {
         tags.push("untagged".to_owned());
     }
     tags
