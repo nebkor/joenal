@@ -21,11 +21,14 @@ async fn main() -> anyhow::Result<()> {
     };
 
     let config = get_config();
-    env::set_var("DATABASE_URL", config.db_file);
+    env::set_var("DATABASE_URL", &config.db_file);
 
     let conn = make_pool().await;
 
-    insert_jot(&conn, &jot).await
+    insert_jot(&conn, &jot).await?;
+
+    conn.close().await;
+    Ok(())
 }
 
 fn get_args() -> ArgMatches<'static> {

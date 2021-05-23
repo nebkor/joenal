@@ -93,6 +93,7 @@ SELECT COUNT(*) FROM jots WHERE jot_id = ?1
     }
 
     let _ = new_jot.as_insert().execute(&mut tx).await?;
+    tx.commit().await?;
 
     Ok(())
 }
