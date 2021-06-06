@@ -39,6 +39,7 @@ pub fn get_joenal_root() -> Uuid {
     mk_jot_ns_uuid(dev_id.as_bytes())
 }
 
+// TODO: incorporate user identity into jot identity
 pub(crate) fn mk_jot_ns_uuid(data: &[u8]) -> Uuid {
     let jot_ns = Uuid::parse_str(NAMESPACE_JOT).unwrap();
 
@@ -49,6 +50,7 @@ pub fn fmt_uuid(u: Uuid) -> Vec<u8> {
     u.as_bytes().to_vec()
 }
 
+// TODO: incorporate user identity into tag identity
 pub fn mk_tag_id(tag: &str) -> Uuid {
     mk_jot_ns_uuid(tag.as_bytes())
 }

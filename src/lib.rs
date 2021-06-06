@@ -28,7 +28,7 @@ pub async fn insert_jot(pool: &SqlitePool, jot: &RawJot) -> AResult<()> {
         static ref UTF_8_MIME: String = TEXT_PLAIN_UTF_8.to_string();
     }
 
-    let mut jot_id = mk_jot_id(&jot);
+    let mut jot_id = mk_jot_id(jot);
     let dev_id = get_device_id();
 
     let mut dup_id = None;
@@ -59,40 +59,33 @@ SELECT COUNT(*) FROM jots WHERE jot_id = ?1
         dup_id,
     );
 
-    let mut new_tags: Vec<models::Tag> = Vec::with_capacity(jot.tags.len());
-    //let mut new_scores: Vec<(Uuid, i32)> = Vec::with_capacity(jot.tags.len());
-    let mut mappings: Vec<models::Mapping> = Vec::with_capacity(jot.tags.len());
+    let _ = new_jot.as_insert().execute(&mut tx).await?;
 
     for tag in jot.tags.iter() {
         let id = mk_tag_id(tag);
-        let old_score: i32 = query_scalar("select score from tags where tag_id = ?1")
+        let score: Option<i32> = query_scalar("select score from tags where tag_id = ?1")
             .bind(&id)
-            .fetch_one(&mut tx)
+            .fetch_optional(&mut tx)
             .await?;
 
-        let new_score = old_score + 1;
-
-        let new_tag = models::Tag::new(tag.clone(), id, dev_id, Some(jot.creation_date), new_score);
-
-        if old_score == 0 {
-            new_tags.push(new_tag);
-        } else {
-            //new_scores.push((id.clone(), new_score))
+        if let Some(oscore) = score {
+            let new_score = oscore + 1;
             let _ = query(r#"UPDATE tags SET score = ?1 WHERE tag_id = ?2"#)
                 .bind(new_score)
                 .bind(&id)
                 .execute(&mut tx)
                 .await?;
-        }
+        } else {
+            let new_tag = models::Tag::new(tag.clone(), id, dev_id, Some(jot.creation_date), 1);
+            let _ = new_tag.as_insert().execute(&mut tx).await?;
+        };
 
         // now the mapping
         let mapping_id = mk_mapping_id(&jot_id, &id);
-
         let mapping = models::Mapping::new(mapping_id, id, jot_id, Some(jot.creation_date));
-        mappings.push(mapping);
+        let _ = mapping.as_insert().execute(&mut tx).await?;
     }
 
-    let _ = new_jot.as_insert().execute(&mut tx).await?;
     tx.commit().await?;
 
     Ok(())
