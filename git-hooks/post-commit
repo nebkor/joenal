@@ -8,7 +8,7 @@ remotes=$(git remote -v |sed 's/(.*$//' |sort |uniq)
 branch=$(git rev-parse --abbrev-ref HEAD)
 commit=$(git rev-parse HEAD)
 
-${HOME}/bin/_jotlog-insert -t "host:${host}" -t headless -t git-commit -m "
+${HOME}/bin/_joenal-insert -t "host:${host}" -t headless -t git-commit -m "
 $logline
 
 ## branch: $branch
