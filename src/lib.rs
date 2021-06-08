@@ -7,10 +7,12 @@ use sqlx::{query, query_as, query_scalar, sqlite::SqlitePool};
 use uuid::Uuid;
 
 mod db;
+pub mod gui;
 mod models;
 mod util;
 
 pub use db::*;
+pub use gui::*;
 pub use models::*;
 pub use util::*;
 

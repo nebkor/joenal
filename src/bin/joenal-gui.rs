@@ -1,6 +1,6 @@
-// Originally licensed under the Apache License from the Druid Authors, Version
-// 2.0 (the "License"); you may not use this file except in compliance with the
-// License. You may obtain a copy of the License at
+// Portions originally licensed under the Apache License from the Druid Authors,
+// Version 2.0 (the "License"); you may not use this file except in compliance
+// with the License. You may obtain a copy of the License at
 //
 //     http://www.apache.org/licenses/LICENSE-2.0
 //
@@ -17,13 +17,12 @@ use std::sync::Arc;
 use druid::{
     text::{AttributesAdder, RichText, RichTextBuilder},
     widget::{
-        prelude::*, Button, Controller, Label, LineBreaking, List, ListIter, RawLabel, Scroll,
-        Split,
+        prelude::*, Controller, Label, LineBreaking, List, ListIter, RawLabel, Scroll, Split,
     },
     AppDelegate, AppLauncher, Color, Command, Data, DelegateCtx, FontFamily, FontStyle, FontWeight,
     Handled, Lens, LocalizedString, Selector, Target, UnitPoint, Widget, WidgetExt, WindowDesc,
 };
-use joenal::{get_config, get_jots, make_pool, Jot};
+use joenal::{get_config, get_jots, gui::Labelable, make_pool, Jot};
 use pulldown_cmark::{Event as ParseEvent, Parser, Tag};
 
 const WINDOW_TITLE: LocalizedString<AppState> = LocalizedString::new("Joenal");
@@ -31,7 +30,7 @@ const WINDOW_TITLE: LocalizedString<AppState> = LocalizedString::new("Joenal");
 const SPACER_SIZE: f64 = 8.0;
 const BLOCKQUOTE_COLOR: Color = Color::grey8(0x88);
 const LINK_COLOR: Color = Color::rgb8(0, 0, 0xEE);
-const OPEN_LINK: Selector<String> = Selector::new("druid-example.open-link");
+const OPEN_LINK: Selector<String> = Selector::new("joenal-gui.open-link");
 
 #[async_std::main]
 async fn main() -> anyhow::Result<()> {
@@ -84,15 +83,15 @@ fn build_root_widget() -> impl Widget<AppState> {
     .expand();
 
     let jotbox = Scroll::new(List::new(|| {
-        let label = Label::new(|item: &(String, usize, usize), _env: &_| item.0.clone());
-        let button = Button::from_label(label)
+        let label = Label::new(|item: &(String, usize, usize), _env: &_| item.0.clone())
             .align_vertical(UnitPoint::LEFT)
             .padding(10.0)
             .expand()
             .height(50.0)
+            .border(Color::rgb8(0, 0, 0), 2.0)
             .background(Color::rgb(0.5, 0.5, 0.5));
 
-        button.on_click(|_event_ctx, data, _env| (*data).2 = data.1)
+        label.on_click(|_event_ctx, data, _env| (*data).2 = data.1)
     }))
     .vertical();
 
@@ -102,7 +101,7 @@ fn build_root_widget() -> impl Widget<AppState> {
 impl ListIter<(String, usize, usize)> for AppState {
     fn for_each(&self, mut cb: impl FnMut(&(String, usize, usize), usize)) {
         for (i, item) in self.jots.iter().enumerate() {
-            let s = item.button_label();
+            let s = item.short_label(50);
             let d = (s, i, self.current_jot);
             cb(&d, i);
         }
@@ -113,7 +112,7 @@ impl ListIter<(String, usize, usize)> for AppState {
         let mut any_changed = false;
 
         for (i, item) in self.jots.iter().enumerate() {
-            let s = item.button_label();
+            let s = item.short_label(50);
             let mut d = (s, i, self.current_jot);
             cb(&mut d, i);
 
