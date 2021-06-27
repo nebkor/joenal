@@ -1,6 +1,6 @@
-// Originally licensed under the Apache License from the Druid Authors, Version
-// 2.0 (the "License"); you may not use this file except in compliance with the
-// License. You may obtain a copy of the License at
+// Portions originally licensed under the Apache License from the Druid Authors,
+// Version 2.0 (the "License"); you may not use this file except in compliance
+// with the License. You may obtain a copy of the License at
 //
 //     http://www.apache.org/licenses/LICENSE-2.0
 //
@@ -17,13 +17,14 @@ use std::sync::Arc;
 use druid::{
     text::{AttributesAdder, RichText, RichTextBuilder},
     widget::{
-        prelude::*, Button, Controller, Label, LineBreaking, List, ListIter, RawLabel, Scroll,
+        prelude::*, Controller, Label, LineBreaking, List, ListIter, Painter, RawLabel, Scroll,
         Split,
     },
     AppDelegate, AppLauncher, Color, Command, Data, DelegateCtx, FontFamily, FontStyle, FontWeight,
-    Handled, Lens, LocalizedString, Selector, Target, UnitPoint, Widget, WidgetExt, WindowDesc,
+    Handled, Lens, LocalizedString, Rect, Selector, Target, UnitPoint, Widget, WidgetExt,
+    WindowDesc,
 };
-use joenal::{get_config, get_jots, make_pool, Jot};
+use joenal::{get_config, get_jots, gui::Labelable, make_pool, Jot};
 use pulldown_cmark::{Event as ParseEvent, Parser, Tag};
 
 const WINDOW_TITLE: LocalizedString<AppState> = LocalizedString::new("Joenal");
@@ -31,7 +32,10 @@ const WINDOW_TITLE: LocalizedString<AppState> = LocalizedString::new("Joenal");
 const SPACER_SIZE: f64 = 8.0;
 const BLOCKQUOTE_COLOR: Color = Color::grey8(0x88);
 const LINK_COLOR: Color = Color::rgb8(0, 0, 0xEE);
-const OPEN_LINK: Selector<String> = Selector::new("druid-example.open-link");
+const OPEN_LINK: Selector<String> = Selector::new("joenal-gui.open-link");
+
+#[derive(Clone, Data, Debug)]
+struct Item(String, usize, usize);
 
 #[async_std::main]
 async fn main() -> anyhow::Result<()> {
@@ -70,6 +74,24 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
+fn jot_card_background(ctx: &mut PaintCtx, data: &Item, _env: &Env) {
+    let bounds = ctx.size().to_rect();
+    if ctx.is_hot() {
+        ctx.fill(bounds, &Color::rgb(0.9, 0.7, 0.01));
+    } else if data.2 == data.1 {
+        ctx.fill(bounds, &Color::rgb(0.5, 0.7, 0.5));
+    } else {
+        ctx.fill(bounds, &Color::rgb(0.5, 0.5, 0.7));
+    }
+
+    //
+    let mut smounds = ctx.size();
+    smounds.width -= 16.0;
+    smounds.height -= 16.0;
+    let smounds = Rect::from_center_size(bounds.center(), smounds);
+    ctx.fill(smounds, &Color::rgb(0.4, 0.4, 0.4));
+}
+
 fn build_root_widget() -> impl Widget<AppState> {
     let rendered = Scroll::new(
         RawLabel::new()
@@ -84,37 +106,36 @@ fn build_root_widget() -> impl Widget<AppState> {
     .expand();
 
     let jotbox = Scroll::new(List::new(|| {
-        let label = Label::new(|item: &(String, usize, usize), _env: &_| item.0.clone());
-        let button = Button::from_label(label)
+        let label = Label::new(|item: &Item, _env: &_| item.0.clone())
             .align_vertical(UnitPoint::LEFT)
             .padding(10.0)
             .expand()
             .height(50.0)
-            .background(Color::rgb(0.5, 0.5, 0.5));
-
-        button.on_click(|_event_ctx, data, _env| (*data).2 = data.1)
+            .border(Color::rgb8(0, 0, 0), 2.0)
+            .background(Painter::new(jot_card_background));
+        label.on_click(|_event_ctx, data, _env| (*data).2 = data.1)
     }))
     .vertical();
 
     Split::columns(jotbox, rendered).draggable(true)
 }
 
-impl ListIter<(String, usize, usize)> for AppState {
-    fn for_each(&self, mut cb: impl FnMut(&(String, usize, usize), usize)) {
+impl ListIter<Item> for AppState {
+    fn for_each(&self, mut cb: impl FnMut(&Item, usize)) {
         for (i, item) in self.jots.iter().enumerate() {
-            let s = item.button_label();
-            let d = (s, i, self.current_jot);
+            let s = item.short_label(50);
+            let d = Item(s, i, self.current_jot);
             cb(&d, i);
         }
     }
 
-    fn for_each_mut(&mut self, mut cb: impl FnMut(&mut (String, usize, usize), usize)) {
+    fn for_each_mut(&mut self, mut cb: impl FnMut(&mut Item, usize)) {
         let mut new_current_jot = self.current_jot;
         let mut any_changed = false;
 
         for (i, item) in self.jots.iter().enumerate() {
-            let s = item.button_label();
-            let mut d = (s, i, self.current_jot);
+            let s = item.short_label(50);
+            let mut d = Item(s, i, self.current_jot);
             cb(&mut d, i);
 
             // if !any_changed && !(*item, i, self.current_jot_room).same(&d) {

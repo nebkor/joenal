@@ -5,11 +5,11 @@ use std::{
 
 use sqlx::{query::Query, sqlite::SqliteArguments, FromRow, Sqlite};
 
-use super::{StarDate, Uuid};
+use super::{Labelable, StarDate, Uuid};
 
-pub struct Content<'j> {
-    pub bytes: &'j [u8],
-    pub mime_type: &'j str,
+pub struct Content<'jot> {
+    pub bytes: &'jot [u8],
+    pub mime_type: &'jot str,
 }
 
 #[derive(Clone, FromRow, Debug)]
@@ -68,9 +68,11 @@ INSERT INTO jots (jot_id, jot_creation_date, jot_content, jot_content_type, devi
             mime_type: &self.jot_content_type,
         }
     }
+}
 
-    pub fn button_label(&self) -> String {
-        let date = if let Some(d) = self.jot_creation_date {
+impl Labelable for Jot {
+    fn short_label(&self, length: usize) -> String {
+        let date = if let Some(d) = self.created() {
             d.to_rfc3339()
         } else {
             "<no date>".to_string()
@@ -79,11 +81,11 @@ INSERT INTO jots (jot_id, jot_creation_date, jot_content, jot_content_type, devi
         let dlen = date.len();
         let date = &date[0..(10.min(dlen))];
 
-        let content = std::str::from_utf8(&self.jot_content)
+        let content = std::str::from_utf8(self.content().bytes)
             .unwrap()
             .replace("\n", " ");
         let clen = content.len();
-        let text = &content[0..(30.min(clen))];
+        let text = &content[0..(length.min(clen))];
 
         format!("{}: {}...", date, text)
     }
