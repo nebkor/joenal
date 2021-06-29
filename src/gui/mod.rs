@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::Jot;
+use crate::{Jot, Tag as JTag};
 
 use druid::text::{AttributesAdder, RichText, RichTextBuilder};
 use druid::{
@@ -8,7 +8,6 @@ use druid::{
     AppDelegate, Color, Command, Data, DelegateCtx, Env, Event, EventCtx, FontFamily, FontStyle,
     FontWeight, Handled, Lens, PaintCtx, Rect, RenderContext, Selector, Target, Widget,
 };
-
 use pulldown_cmark::{Event as ParseEvent, Parser, Tag};
 use sqlx::SqlitePool;
 
@@ -141,6 +140,7 @@ fn add_attribute_for_tag(tag: &Tag, mut attrs: AttributesAdder) {
 pub struct AppState {
     rendered: RichText,
     current_jot: usize,
+    current_tags: Arc<Vec<JTag>>,
     pool: sqlx::SqlitePool,
     jots: Arc<Vec<Jot>>,
 }
@@ -163,6 +163,7 @@ impl AppState {
             current_jot,
             pool,
             jots,
+            current_tags: Arc::new(vec![]),
         }
     }
 }
