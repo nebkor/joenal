@@ -75,7 +75,7 @@ fn build_root_widget() -> impl Widget<AppState> {
     .expand();
 
     let jotbox = Scroll::new(List::new(|| {
-        let label = Label::new(|item: &Item, _env: &_| item.label().to_string())
+        let label = Label::new(|item: &JotCard, _env: &_| item.label().to_string())
             .align_vertical(UnitPoint::LEFT)
             .padding(10.0)
             .expand()

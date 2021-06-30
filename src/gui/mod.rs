@@ -22,24 +22,6 @@ const GLORANGE: Color = Color::rgb8(207, 91, 1);
 const BACK_BLUE: Color = Color::rgb8(5, 11, 110);
 const ACTIVE_GREEN: Color = Color::rgb8(0, 150, 5);
 
-pub fn jot_card_background(ctx: &mut PaintCtx, data: &Item, _env: &Env) {
-    let bounds = ctx.size().to_rect();
-    if ctx.is_hot() {
-        ctx.fill(bounds, &GLORANGE);
-    } else if data.2 == data.1 {
-        ctx.fill(bounds, &ACTIVE_GREEN);
-    } else {
-        ctx.fill(bounds, &BACK_BLUE);
-    }
-
-    //
-    let mut inner_bounds = ctx.size();
-    inner_bounds.width -= 16.0;
-    inner_bounds.height -= 16.0;
-    let smounds = Rect::from_center_size(bounds.center(), inner_bounds).to_rounded_rect(5.0);
-    ctx.fill(smounds, &Color::rgb(0.4, 0.4, 0.4));
-}
-
 #[derive(Clone, Lens)]
 pub struct AppState {
     rendered: RichText,
@@ -73,48 +55,60 @@ impl AppState {
 }
 
 #[derive(Clone, Data, Debug)]
-pub struct Item(String, usize, usize);
-
-impl Item {
-    pub fn new(label: String, id: usize, current: usize) -> Self {
-        Item(label, id, current)
-    }
-
-    pub fn is_current(&self) -> bool {
-        self.1 == self.2
-    }
-
-    pub fn make_current(&mut self) {
-        self.2 = self.1;
-    }
-
-    pub fn label(&self) -> &str {
-        &self.0
-    }
+pub struct JotCard {
+    label: String,
+    idx: usize,
+    current_jot_idx: usize,
 }
 
-impl ListIter<Item> for AppState {
-    fn for_each(&self, mut cb: impl FnMut(&Item, usize)) {
-        for (i, item) in self.jots.iter().enumerate() {
-            let s = item.short_label(50);
-            let d = Item(s, i, self.current_jot);
-            cb(&d, i);
+impl JotCard {
+    pub fn new(label: String, id: usize, current: usize) -> Self {
+        JotCard {
+            label,
+            idx: id,
+            current_jot_idx: current,
         }
     }
 
-    fn for_each_mut(&mut self, mut cb: impl FnMut(&mut Item, usize)) {
+    pub fn is_current(&self) -> bool {
+        self.idx == self.current_jot_idx
+    }
+
+    pub fn make_current(&mut self) {
+        self.current_jot_idx = self.idx;
+    }
+
+    pub fn label(&self) -> &str {
+        &self.label
+    }
+}
+
+impl ListIter<JotCard> for AppState {
+    fn for_each(&self, mut cb: impl FnMut(&JotCard, usize)) {
+        for (idx, jot) in self.jots.iter().enumerate() {
+            let label = jot.short_label(50);
+            let data_item = JotCard {
+                label,
+                idx,
+                current_jot_idx: self.current_jot,
+            };
+            cb(&data_item, idx);
+        }
+    }
+
+    fn for_each_mut(&mut self, mut cb: impl FnMut(&mut JotCard, usize)) {
         let mut new_current_jot = self.current_jot;
         let mut any_changed = false;
 
-        for (i, item) in self.jots.iter().enumerate() {
-            let s = item.short_label(50);
-            let mut d = Item(s, i, self.current_jot);
-            cb(&mut d, i);
+        for (idx, jot) in self.jots.iter().enumerate() {
+            let label = jot.short_label(50);
+            let mut data_item = JotCard::new(label, idx, self.current_jot);
+            cb(&mut data_item, idx);
 
             // if !any_changed && !(*item, i, self.current_jot_room).same(&d) {
-            if !self.current_jot.same(&d.2) {
+            if !self.current_jot.same(&data_item.current_jot_idx) {
                 any_changed = true;
-                new_current_jot = d.2;
+                new_current_jot = data_item.current_jot_idx;
             }
         }
 
@@ -128,6 +122,24 @@ impl ListIter<Item> for AppState {
     fn data_len(&self) -> usize {
         self.jots.len()
     }
+}
+
+pub fn jot_card_background(ctx: &mut PaintCtx, data: &JotCard, _env: &Env) {
+    let bounds = ctx.size().to_rect();
+    if ctx.is_hot() {
+        ctx.fill(bounds, &GLORANGE);
+    } else if data.current_jot_idx == data.idx {
+        ctx.fill(bounds, &ACTIVE_GREEN);
+    } else {
+        ctx.fill(bounds, &BACK_BLUE);
+    }
+
+    //
+    let mut inner_bounds = ctx.size();
+    inner_bounds.width -= 16.0;
+    inner_bounds.height -= 16.0;
+    let smounds = Rect::from_center_size(bounds.center(), inner_bounds).to_rounded_rect(5.0);
+    ctx.fill(smounds, &Color::rgb(0.4, 0.4, 0.4));
 }
 
 /// A controller that rebuilds the preview when edits occur
