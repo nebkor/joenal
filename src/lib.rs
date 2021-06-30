@@ -117,7 +117,7 @@ SELECT * FROM jots WHERE jot_id = ?1
     .fetch_one(conn)
     .await
     {
-        Ok(jots) => jots,
+        Ok(jot) => jot,
         _ => panic!(),
     }
 }

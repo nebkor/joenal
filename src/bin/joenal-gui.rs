@@ -15,27 +15,14 @@
 use std::sync::Arc;
 
 use druid::{
-    text::{AttributesAdder, RichText, RichTextBuilder},
-    widget::{
-        prelude::*, Controller, Label, LineBreaking, List, ListIter, Painter, RawLabel, Scroll,
-        Split,
-    },
-    AppDelegate, AppLauncher, Color, Command, Data, DelegateCtx, FontFamily, FontStyle, FontWeight,
-    Handled, Lens, LocalizedString, Rect, Selector, Target, UnitPoint, Widget, WidgetExt,
-    WindowDesc,
+    widget::{Label, LineBreaking, List, Painter, RawLabel, Scroll, Split},
+    AppLauncher, Color, LocalizedString, UnitPoint, Widget, WidgetExt, WindowDesc,
 };
-use joenal::{get_config, get_jots, gui::Labelable, make_pool, Jot};
-use pulldown_cmark::{Event as ParseEvent, Parser, Tag};
+use joenal::{get_config, get_jots, gui::*, make_pool};
 
 const WINDOW_TITLE: LocalizedString<AppState> = LocalizedString::new("Joenal");
 
 const SPACER_SIZE: f64 = 8.0;
-const BLOCKQUOTE_COLOR: Color = Color::grey8(0x88);
-const LINK_COLOR: Color = Color::rgb8(0, 0, 0xEE);
-const OPEN_LINK: Selector<String> = Selector::new("joenal-gui.open-link");
-
-#[derive(Clone, Data, Debug)]
-struct Item(String, usize, usize);
 
 #[async_std::main]
 async fn main() -> anyhow::Result<()> {
@@ -57,12 +44,12 @@ async fn main() -> anyhow::Result<()> {
         .title(WINDOW_TITLE)
         .window_size((700.0, 600.0));
 
-    let initial_state = AppState {
-        rendered: rebuild_rendered_text(content),
-        current_jot: 0,
-        pool: conn.clone(),
-        jots: Arc::new(jots),
-    };
+    let initial_state = AppState::new(
+        rebuild_rendered_text(content),
+        0,
+        conn.clone(),
+        Arc::new(jots),
+    );
 
     // start the application
     AppLauncher::with_window(main_window)
@@ -72,24 +59,6 @@ async fn main() -> anyhow::Result<()> {
         .expect("Failed to launch application");
 
     Ok(())
-}
-
-fn jot_card_background(ctx: &mut PaintCtx, data: &Item, _env: &Env) {
-    let bounds = ctx.size().to_rect();
-    if ctx.is_hot() {
-        ctx.fill(bounds, &Color::rgb(0.9, 0.7, 0.01));
-    } else if data.2 == data.1 {
-        ctx.fill(bounds, &Color::rgb(0.5, 0.7, 0.5));
-    } else {
-        ctx.fill(bounds, &Color::rgb(0.5, 0.5, 0.7));
-    }
-
-    //
-    let mut smounds = ctx.size();
-    smounds.width -= 16.0;
-    smounds.height -= 16.0;
-    let smounds = Rect::from_center_size(bounds.center(), smounds);
-    ctx.fill(smounds, &Color::rgb(0.4, 0.4, 0.4));
 }
 
 fn build_root_widget() -> impl Widget<AppState> {
@@ -106,204 +75,16 @@ fn build_root_widget() -> impl Widget<AppState> {
     .expand();
 
     let jotbox = Scroll::new(List::new(|| {
-        let label = Label::new(|item: &Item, _env: &_| item.0.clone())
+        let label = Label::new(|item: &JotCard, _env: &_| item.label().to_string())
             .align_vertical(UnitPoint::LEFT)
             .padding(10.0)
             .expand()
             .height(50.0)
             .border(Color::rgb8(0, 0, 0), 2.0)
             .background(Painter::new(jot_card_background));
-        label.on_click(|_event_ctx, data, _env| (*data).2 = data.1)
+        label.on_click(|_event_ctx, data, _env| data.make_current())
     }))
     .vertical();
 
     Split::columns(jotbox, rendered).draggable(true)
-}
-
-impl ListIter<Item> for AppState {
-    fn for_each(&self, mut cb: impl FnMut(&Item, usize)) {
-        for (i, item) in self.jots.iter().enumerate() {
-            let s = item.short_label(50);
-            let d = Item(s, i, self.current_jot);
-            cb(&d, i);
-        }
-    }
-
-    fn for_each_mut(&mut self, mut cb: impl FnMut(&mut Item, usize)) {
-        let mut new_current_jot = self.current_jot;
-        let mut any_changed = false;
-
-        for (i, item) in self.jots.iter().enumerate() {
-            let s = item.short_label(50);
-            let mut d = Item(s, i, self.current_jot);
-            cb(&mut d, i);
-
-            // if !any_changed && !(*item, i, self.current_jot_room).same(&d) {
-            if !self.current_jot.same(&d.2) {
-                any_changed = true;
-                new_current_jot = d.2;
-            }
-        }
-
-        if any_changed {
-            self.current_jot = new_current_jot;
-            let text = std::str::from_utf8(self.jots[new_current_jot].content().bytes).unwrap();
-            self.rendered = rebuild_rendered_text(text);
-        }
-    }
-
-    fn data_len(&self) -> usize {
-        self.jots.len()
-    }
-}
-
-/// Parse a markdown string and generate a `RichText` object with
-/// the appropriate attributes.
-fn rebuild_rendered_text(text: &str) -> RichText {
-    let mut current_pos = 0;
-    let mut builder = RichTextBuilder::new();
-    let mut tag_stack = Vec::new();
-
-    let parser = Parser::new(text);
-    for event in parser {
-        match event {
-            ParseEvent::Start(tag) => {
-                tag_stack.push((current_pos, tag));
-            }
-            ParseEvent::Text(txt) => {
-                builder.push(&txt);
-                current_pos += txt.len();
-            }
-            ParseEvent::End(end_tag) => {
-                let (start_off, tag) = tag_stack
-                    .pop()
-                    .expect("parser does not return unbalanced tags");
-                assert_eq!(end_tag, tag, "mismatched tags?");
-                add_attribute_for_tag(
-                    &tag,
-                    builder.add_attributes_for_range(start_off..current_pos),
-                );
-                if add_newline_after_tag(&tag) {
-                    builder.push("\n\n");
-                    current_pos += 2;
-                }
-            }
-            ParseEvent::Code(txt) => {
-                builder.push(&txt).font_family(FontFamily::MONOSPACE);
-                current_pos += txt.len();
-            }
-            ParseEvent::Html(txt) => {
-                builder
-                    .push(&txt)
-                    .font_family(FontFamily::MONOSPACE)
-                    .text_color(BLOCKQUOTE_COLOR);
-                current_pos += txt.len();
-            }
-            ParseEvent::HardBreak => {
-                builder.push("\n\n");
-                current_pos += 2;
-            }
-            _ => (),
-        }
-    }
-    builder.build()
-}
-
-fn add_newline_after_tag(tag: &Tag) -> bool {
-    !matches!(
-        tag,
-        Tag::Emphasis | Tag::Strong | Tag::Strikethrough | Tag::Link(..)
-    )
-}
-
-fn add_attribute_for_tag(tag: &Tag, mut attrs: AttributesAdder) {
-    match tag {
-        Tag::Heading(lvl) => {
-            let font_size = match lvl {
-                1 => 38.,
-                2 => 32.0,
-                3 => 26.0,
-                4 => 20.0,
-                5 => 16.0,
-                _ => 12.0,
-            };
-            attrs.size(font_size).weight(FontWeight::BOLD);
-        }
-        Tag::BlockQuote => {
-            attrs.style(FontStyle::Italic).text_color(BLOCKQUOTE_COLOR);
-        }
-        Tag::CodeBlock(_) => {
-            attrs.font_family(FontFamily::MONOSPACE);
-        }
-        Tag::Emphasis => {
-            attrs.style(FontStyle::Italic);
-        }
-        Tag::Strong => {
-            attrs.weight(FontWeight::BOLD);
-        }
-        Tag::Link(_link_ty, target, _title) => {
-            attrs
-                .underline(true)
-                .text_color(LINK_COLOR)
-                .link(OPEN_LINK.with(target.to_string()));
-        }
-        // ignore other tags for now
-        _ => (),
-    }
-}
-
-#[derive(Clone, Lens)]
-struct AppState {
-    rendered: RichText,
-    current_jot: usize,
-    pool: sqlx::SqlitePool,
-    jots: Arc<Vec<Jot>>,
-}
-
-impl Data for AppState {
-    fn same(&self, other: &Self) -> bool {
-        self.current_jot == other.current_jot && self.rendered.same(&other.rendered)
-    }
-}
-
-/// A controller that rebuilds the preview when edits occur
-struct RichTextRebuilder;
-
-impl<W: Widget<AppState>> Controller<AppState, W> for RichTextRebuilder {
-    fn event(
-        &mut self,
-        child: &mut W,
-        ctx: &mut EventCtx,
-        event: &Event,
-        data: &mut AppState,
-        env: &Env,
-    ) {
-        let pre_data = data.current_jot;
-        child.event(ctx, event, data, env);
-        if data.current_jot != pre_data {
-            let jot = &data.jots[data.current_jot];
-            let txt = std::str::from_utf8(jot.content().bytes).unwrap();
-            data.rendered = rebuild_rendered_text(txt);
-        }
-    }
-}
-
-struct Delegate;
-
-impl<T: Data> AppDelegate<T> for Delegate {
-    fn command(
-        &mut self,
-        _ctx: &mut DelegateCtx,
-        _target: Target,
-        cmd: &Command,
-        _data: &mut T,
-        _env: &Env,
-    ) -> Handled {
-        if let Some(url) = cmd.get(OPEN_LINK) {
-            open::that_in_background(url);
-            Handled::Yes
-        } else {
-            Handled::No
-        }
-    }
 }
