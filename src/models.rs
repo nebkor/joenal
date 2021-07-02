@@ -184,8 +184,16 @@ impl Tag {
         }
     }
 
-    pub fn get_score(&self) -> i32 {
+    pub fn score(&self) -> i32 {
         self.score
+    }
+
+    pub fn id(&self) -> Uuid {
+        self.tag_id
+    }
+
+    pub fn text(&self) -> &str {
+        &self.tag_text
     }
 
     pub fn as_insert(&self) -> Query<'static, Sqlite, SqliteArguments<'static>> {
@@ -205,5 +213,19 @@ INSERT INTO tags (tag_id, tag_creation_date, tag_text, device_id, score) VALUES 
 impl Display for Tag {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{}: {}", self.tag_text, self.score)
+    }
+}
+
+impl PartialEq for Tag {
+    fn eq(&self, other: &Self) -> bool {
+        self.tag_id == other.tag_id
+    }
+}
+
+impl Eq for Tag {}
+
+impl druid::Data for Tag {
+    fn same(&self, other: &Self) -> bool {
+        self == other
     }
 }

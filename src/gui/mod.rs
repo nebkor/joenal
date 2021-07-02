@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::{Jot, Tag as JTag};
+use crate::{Jot, Tag};
 
 use druid::{
     text::RichText,
@@ -10,6 +10,8 @@ use druid::{
 };
 
 use sqlx::SqlitePool;
+
+use uuid::Uuid;
 
 mod markdown;
 pub use markdown::*;
@@ -26,7 +28,7 @@ const ACTIVE_GREEN: Color = Color::rgb8(0, 150, 5);
 pub struct AppState {
     rendered: RichText,
     current_jot: usize,
-    current_tags: Arc<Vec<JTag>>,
+    current_tags: Arc<Vec<Tag>>,
     pool: sqlx::SqlitePool,
     jots: Arc<Vec<Jot>>,
 }
@@ -43,13 +45,14 @@ impl AppState {
         current_jot: usize,
         pool: SqlitePool,
         jots: Arc<Vec<Jot>>,
+        tags: Arc<Vec<Tag>>
     ) -> Self {
         AppState {
             rendered,
             current_jot,
             pool,
             jots,
-            current_tags: Arc::new(vec![]),
+            current_tags: tags,
         }
     }
 }
@@ -125,7 +128,7 @@ impl ListIter<JotCard> for AppState {
 }
 
 pub fn jot_card_background(ctx: &mut PaintCtx, data: &JotCard, _env: &Env) {
-    let bounds = ctx.size().to_rect();
+    let bounds = ctx.size().to_rect().to_rounded_rect(5.0);
     if ctx.is_hot() {
         ctx.fill(bounds, &GLORANGE);
     } else if data.current_jot_idx == data.idx {

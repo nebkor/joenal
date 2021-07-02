@@ -122,6 +122,20 @@ SELECT * FROM jots WHERE jot_id = ?1
     }
 }
 
+pub async fn get_tags(conn: &SqlitePool) -> Vec<Tag> {
+    match query_as(
+        r#"
+SELECT * FROM tags ORDER BY score DESC
+"#,
+    )
+    .fetch_all(conn)
+    .await
+    {
+        Ok(tags) => tags,
+        _ => panic!(),
+    }
+}
+
 pub fn parse_tags(tagline: &str) -> Vec<String> {
     let tags: BTreeSet<String> = tagline
         .split(',')

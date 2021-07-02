@@ -18,7 +18,7 @@ use druid::{
     widget::{Label, LineBreaking, List, Painter, RawLabel, Scroll, Split},
     AppLauncher, Color, LocalizedString, UnitPoint, Widget, WidgetExt, WindowDesc,
 };
-use joenal::{get_config, get_jots, gui::*, make_pool};
+use joenal::{Tag, get_config, get_jots, get_tags, gui::*, make_pool};
 
 const WINDOW_TITLE: LocalizedString<AppState> = LocalizedString::new("Joenal");
 
@@ -36,6 +36,8 @@ async fn main() -> anyhow::Result<()> {
     let jots = get_jots(&conn).await;
     let jot = &jots[0];
 
+    let tags = get_tags(&conn).await;
+
     // just between us friends, we don't have any non-utf8 bytes in our content yet
     let content: &str = std::str::from_utf8(jot.content().bytes).unwrap();
 
@@ -49,6 +51,7 @@ async fn main() -> anyhow::Result<()> {
         0,
         conn.clone(),
         Arc::new(jots),
+        Arc::new(tags),
     );
 
     // start the application
@@ -76,15 +79,35 @@ fn build_root_widget() -> impl Widget<AppState> {
 
     let jotbox = Scroll::new(List::new(|| {
         let label = Label::new(|item: &JotCard, _env: &_| item.label().to_string())
-            .align_vertical(UnitPoint::LEFT)
+            .align_vertical(UnitPoint::CENTER)
             .padding(10.0)
             .expand()
             .height(50.0)
             .border(Color::rgb8(0, 0, 0), 2.0)
             .background(Painter::new(jot_card_background));
-        label.on_click(|_event_ctx, data, _env| data.make_current())
+        label.on_click(|_event_ctx, jotcard, _env| jotcard.make_current())
     }))
     .vertical();
 
-    Split::columns(jotbox, rendered).draggable(true)
+    let tagbox = Scroll::new(
+        List::new(|| {
+            Label::new(|item: &Tag, _env: &_| item.text().to_string())
+                .with_line_break_mode(LineBreaking::WordWrap)
+                .with_text_color(Color::grey8(222))
+                .background(Color::BLACK)
+                .align_horizontal(UnitPoint::CENTER)
+                .align_vertical(UnitPoint::CENTER)
+                .padding(5.0)
+                .expand()
+                .height(50.0)
+                .width(150.0)
+        })
+        .horizontal(),
+    )
+    .horizontal()
+    .lens(AppState::current_tags);
+
+    let tags_and_rendered = Split::rows(tagbox, rendered).draggable(true);
+
+    Split::columns(jotbox, tags_and_rendered).draggable(true)
 }
